@@ -1,7 +1,7 @@
 import { Box, Typography, useMediaQuery, Button, Grid, Link } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline';
-import gifDemo from '../images/topicGridGif.gif';
+import gifDemo from '../images/topicsGrid.mp4';
 import calendarView from '../images/calendarView.png';
 
 export default function GifShowcase() {
@@ -21,17 +21,23 @@ export default function GifShowcase() {
         py: 6,
       }}
     >
-      <Box
-        component="img"
-        src={gifDemo}
-        alt="Demo of generating LinkedIn post from article"
-        sx={{
-          width: isMobile ? '100%' : '50%',
-          height: '100%',
-          borderRadius: 2,
-          boxShadow: 3,
-        }}
-      />
+    <Box
+  component="video"
+  src={gifDemo}
+  autoPlay
+  loop
+  muted
+  playsInline
+  alt="Demo of generating LinkedIn post from article"
+  sx={{
+    width: isMobile ? '100%' : '50%',
+    height: '100%',
+    borderRadius: 2,
+    boxShadow: 3,
+    objectFit: 'cover',
+  }}
+/>
+
 
       <Box maxWidth={isMobile ? '100%' : 420}>
         <Typography gutterBottom sx={{ fontFamily : 'Inter', fontSize : isMobile ? '22px' : '26px', fontWeight : 600}}>
