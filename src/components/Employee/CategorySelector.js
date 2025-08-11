@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
+import { Link } from "react-router-dom";
 import {
   Box,
   Typography,
@@ -158,17 +159,35 @@ const handleTopicSave = async () => {
   return (
     <Box>
       {/* Header */}
-      <Box display="flex" justifyContent="space-between" alignItems="center" px={4} py={2}>
-        <a href="/">
-          <img className="img-fluid" src={logo} alt="postln" width={110} />
-        </a>
-        <Button
-          onClick={handleLogout}
-          variant="text"
-          sx={{ color: "grey", ":hover": { color: "#000000" }, textTransform: "none" }}
-        >
-          Logout
-        </Button>
+       <Box display="flex" justifyContent="space-between" alignItems="center" px={4} py={2} mt={4}>
+   <header
+  style={{
+    position: "fixed",
+    top: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "#F5F7F8",
+    padding: "12px 24px",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    zIndex: 50,
+  }}
+>
+  <Link to="/" style={{ display: "flex", alignItems: "center", textDecoration: "none", color: "inherit" }}>
+    <img src={logo} alt="PostLn Logo" width="40" height="auto" style={{ display: "block" }} />
+    <div style={{ marginLeft: 2, fontWeight: 600, fontSize: "1.2rem" }}>PostLn</div>
+  </Link>
+
+  <Button
+    onClick={handleLogout}
+    variant="text"
+    sx={{ color: "grey", ":hover": { color: "#000000" }, textTransform: "none" }}
+  >
+    Logout
+  </Button>
+</header>
+
       </Box>
 
       {/* Category Selection */}

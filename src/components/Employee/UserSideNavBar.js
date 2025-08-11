@@ -28,7 +28,7 @@ import {
 import DateRangeOutlinedIcon from '@mui/icons-material/DateRangeOutlined';
 import SpaceDashboardOutlinedIcon from "@mui/icons-material/SpaceDashboardOutlined";
 import { deepOrange, blue, green, brown } from "@mui/material/colors";
-import logo from "../../images/desk-logo.svg";
+import logo from "../../images/postln_logo.svg";
 import axios from "axios";
 
 const theme = createTheme({
@@ -118,7 +118,10 @@ const getHeaderTitle = () => {
   const drawerContent = (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100vh", backgroundColor: '#F5F7F8' }}>
       <Toolbar sx={{ justifyContent: "space-between" }}>
-        <img src={logo} alt="Logo" />
+      <Link to="/" style={{ display: "flex", alignItems: "center", textDecoration: "none", color: "inherit" }}>
+           <img src={logo} alt="PostLn Logo" width="32" height="auto" style={{ display: "block" }} />
+           <div style={{ marginLeft: 2, fontWeight: 600, fontSize: "1.2rem" }}>PostLn</div>
+         </Link>
         {isSmallScreen && (
           <IconButton onClick={handleDrawerToggle}>
             <CloseIcon />
