@@ -27,10 +27,7 @@ export default function LandingPage() {
         />
         <meta property="og:type" content="website" />
         <link rel="canonical" href="https://www.postln.com" />
-        <meta
-          name="google-site-verification"
-          content="z3S3YuiRlbJVB_u7hB9OAhXaVifVn7bO5dzXyyHM-bc"
-        />
+        <meta name="google-site-verification" content="CETKVAossRw6jCWRL_s8eGjPEM6CCx10zTFjEL2_IH8" />
       </Helmet>
 
       <Navbar />
