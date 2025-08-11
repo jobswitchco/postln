@@ -19,7 +19,7 @@ export default function LandingPage() {
 
         <meta
           property="og:title"
-          content="Switch IT Jobs Faster | Verified Offers from Top Companies"
+          content="LinkedIn Post Generator with AI | PostLn"
         />
         <meta
           property="og:description"
@@ -33,11 +33,10 @@ export default function LandingPage() {
       <Navbar />
       <HeroSection />
       <SimulatedTypingDemo />
-      <GifShowcase />
-      <BodyMain1 />
-
       {/* Lazy-loaded below pages */}
       <Suspense fallback={<div style={{ padding: "2rem", textAlign: "center" }}>Loading...</div>}>
+       <GifShowcase />
+      <BodyMain1 />
         <BannerLandpage />
         <Footer />
       </Suspense>
