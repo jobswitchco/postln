@@ -11,7 +11,7 @@ function SupportContact() {
       window.dataLayer.push(arguments);
     }
     gtag('js', new Date());
-    gtag('config', 'G-D1X0WBG5EL');
+    gtag('config', 'G-FR7630J1YJ');
   }, []);
 
   return (
@@ -20,7 +20,7 @@ function SupportContact() {
         <title>Contact Us | PostLn</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
-        <script async src="https://www.googletagmanager.com/gtag/js?id=G-D1X0WBG5EL"></script>
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-FR7630J1YJ"></script>
       </header>
 
       <Navbar />

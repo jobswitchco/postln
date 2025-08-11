@@ -25,6 +25,15 @@ const DashboardOverview = () => {
        const [ loading, setLoading ] = useState(false);
      
 
+        useEffect(() => {
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+      window.dataLayer.push(arguments);
+    }
+    gtag('js', new Date());
+    gtag('config', 'G-FR7630J1YJ');
+  }, []);
+  
 
     const handleSessionExpired = () => {
             toast.error("Session expired. Please log in again.");

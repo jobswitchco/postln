@@ -14,4 +14,4 @@ Disallow: /staging/
 Disallow: /test/
 
 # Allow search engines to crawl the site map
-Sitemap: https://www.newrole.in/sitemap.xml
+Sitemap: https://www.postln.com/sitemap.xml

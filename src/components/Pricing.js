@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Navbar from './Navbar';
 import Footer from './Footer';
 import { useNavigate } from "react-router-dom";
@@ -10,6 +10,15 @@ import { useNavigate } from "react-router-dom";
 function Pricing() {
   const [isMonthly, setIsMonthly] = useState(true);
   const navigate = useNavigate();
+
+   useEffect(() => {
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+      window.dataLayer.push(arguments);
+    }
+    gtag('js', new Date());
+    gtag('config', 'G-FR7630J1YJ');
+  }, []);
 
 
   const togglePricing = () => {
@@ -24,13 +33,12 @@ function Pricing() {
 
   return (
     <>
-      <header>
+        <header>
         <title>Pricing and Packages | PostLn</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta name="description" content="Checkout the prices and rates for Employers." />
-
-
         <link rel="icon" href="/favicon.ico" />
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-FR7630J1YJ"></script>
+
       </header>
 
       <Navbar />

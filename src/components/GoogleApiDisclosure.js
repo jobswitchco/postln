@@ -5,15 +5,14 @@ import Footer from './Footer'
 
 function GoogleApiDisclosure() {
 
-     useEffect(() => {
-          // Ensure dataLayer is defined before calling gtag
-          window.dataLayer = window.dataLayer || [];
-          function gtag() {
-            window.dataLayer.push(arguments);
-          }
-          gtag('js', new Date());
-          gtag('config', 'G-D1X0WBG5EL');
-        }, []);
+    useEffect(() => {
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+      window.dataLayer.push(arguments);
+    }
+    gtag('js', new Date());
+    gtag('config', 'G-FR7630J1YJ');
+  }, []);
 
   return (
    <>
@@ -22,7 +21,7 @@ function GoogleApiDisclosure() {
         <title>Security and Data Protection | PostLn</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
-        <script async src="https://www.googletagmanager.com/gtag/js?id=G-D1X0WBG5EL"></script>
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-FR7630J1YJ"></script>
 
       </header>
    <Navbar />
