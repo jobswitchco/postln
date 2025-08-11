@@ -36,7 +36,7 @@ export default function LandingPage() {
       <GifShowcase />
       <BodyMain1 />
 
-      {/* Lazy-loaded below */}
+      {/* Lazy-loaded below pages */}
       <Suspense fallback={<div style={{ padding: "2rem", textAlign: "center" }}>Loading...</div>}>
         <BannerLandpage />
         <Footer />
