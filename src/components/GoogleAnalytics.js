@@ -6,9 +6,11 @@ function GoogleAnalytics() {
   const location = useLocation();
 
   useEffect(() => {
-    if (typeof window.gtag === 'function') {
-      window.gtag('config', 'G-FR7630J1YJ', {
+    if (window.gtag) {
+      window.gtag("event", "page_view", {
         page_path: location.pathname + location.search,
+        page_location: window.location.href,
+        page_title: document.title,
       });
     }
   }, [location]);
