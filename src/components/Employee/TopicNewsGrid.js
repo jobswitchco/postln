@@ -228,18 +228,19 @@ useEffect(() => {
     }
   };
 
-  const fetchArticles = async (page = 1) => {
+ const fetchArticles = async (page = 1) => {
   try {
-
     setLoading(true);
-    const response = await axios.post(baseUrl + "/fetch-articles-for-user", {
-      topic: selectedTopic,     // e.g., "LinkedIn"
-      region: selectedRegion,   // e.g., "IN"
-      page: page,               // pagination
-      limit: 9,                 // always fetch 9
-    }, {withCredentials : true});
-    
-    // console.log('Data::::::::', response.data.data);
+    const response = await axios.post(
+      baseUrl + "/fetch-articles-for-user",
+      {
+        topic: selectedTopic,     // e.g., "LinkedIn"
+        region: selectedRegion,   // e.g., "IN"
+        page: page,               // pagination
+        limit: 9,                 // always fetch 9
+      },
+      { withCredentials: true }
+    );
 
     const newArticles = response.data?.data || [];
 
@@ -249,12 +250,15 @@ useEffect(() => {
     // Pagination control
     setPage(page);
     setHasMore(newArticles.length === 9); // If fewer than 9, no more left
-    setLoading(false);
   } catch (error) {
     console.error("Error fetching articles:", error);
     setHasMore(false);
+  } finally {
+    // This ensures loading is reset even if there's an error
+    setLoading(false);
   }
 };
+
 
 useEffect(() => {
     const detectRegionAndLoad = async () => {
