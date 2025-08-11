@@ -7,7 +7,7 @@ function GoogleAnalytics() {
 
   useEffect(() => {
     if (typeof window.gtag === 'function') {
-      window.gtag('config', 'G-GE81BKLV3D', {
+      window.gtag('config', 'G-FR7630J1YJ', {
         page_path: location.pathname + location.search,
       });
     }
