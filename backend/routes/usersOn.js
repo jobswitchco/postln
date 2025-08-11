@@ -35,7 +35,7 @@ definePublishJob(agenda);
 
 const CLIENT_ID = process.env.LINKEDIN_CLIENT_ID;
 const CLIENT_SECRET = process.env.LINKEDIN_CLIENT_SECRET;
-const REDIRECT_URI = "http://localhost:4700/auth/linkedin/callback";
+const REDIRECT_URI = "http://www.postln.com/auth/linkedin/callback";
 const PERPLEXITY_API_URL = "https://api.perplexity.ai/chat/completions";
 const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY;
 
