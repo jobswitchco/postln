@@ -38,7 +38,8 @@ function LinkedInUserLogin() {
   const theme = useTheme();
   const isSmallScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const CLIENT_ID = "867k4359a94ps3";
-  const REDIRECT_URI = "http://localhost:4700/auth/linkedin/callback";
+  // const REDIRECT_URI = "http://localhost:4700/auth/linkedin/callback";
+  const REDIRECT_URI = "http://www.postln.com/auth/linkedin/callback";
   const STATE = "DCEEFWF45453sdffef424";
   const SCOPE = "openid profile email w_member_social";
 

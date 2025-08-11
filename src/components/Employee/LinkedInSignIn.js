@@ -1,5 +1,6 @@
 const CLIENT_ID = "867k4359a94ps3";
-const REDIRECT_URI = "http://localhost:4700/auth/linkedin/callback";
+// const REDIRECT_URI = "http://localhost:4700/auth/linkedin/callback";
+const REDIRECT_URI = "http://www.postln.com/auth/linkedin/callback";
 const SCOPE = "r_liteprofile r_emailaddress w_member_social";
 
 const LinkedInSignIn = () => {
