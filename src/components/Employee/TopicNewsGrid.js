@@ -38,7 +38,7 @@ const countryOptions = Object.entries(
   countries.getNames("en", { select: "official" })
 ).map(([code, name]) => ({ code, name }));
 
-const truncate = (text, limit = 120) =>
+const truncate = (text, limit = 160) =>
   text.length > limit ? text.slice(0, limit) + "..." : text;
 
 export default function TopicNewsGrid() {
@@ -581,7 +581,7 @@ wsRef.current = ws;
       {/* <Typography variant="caption" color="primary">
         #{selectedTopic}
       </Typography> */}
-      <Typography sx={{ mt: 0.5, fontSize: "14px", fontWeight: 500 }}>
+      <Typography sx={{ mt: 0.5, fontSize: "14px", fontWeight: 500, fontFamily: 'Inter' }}>
         {article.title}
       </Typography>
       <Box sx={{ mt: 1 }}>
