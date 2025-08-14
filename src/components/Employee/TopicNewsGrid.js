@@ -74,16 +74,6 @@ export default function TopicNewsGrid() {
   const [isStreaming, setIsStreaming] = useState(false);
   const limit = 9;
 
-  // Determine WS protocol dynamically
-const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-
-// Use relative host in production
-const host = window.location.hostname; // current host
-const port = window.location.port; // current port if needed
-
-// If your backend WS runs on the same origin:
-const wsUrl = `${protocol}://${host}${port ? ":" + port : ""}/ws`;
-
 
   const handleClick = (event) => setAnchorEl(event.currentTarget);
   const handleClose = () => setAnchorEl(null);
@@ -205,6 +195,12 @@ const setupWebSocket = (topic, region, page = 1, limit = 9) => {
     wsRef.current = null;
   }
   // const ws = new WebSocket("ws://localhost:8001");
+
+   const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+
+  // Build WS URL dynamically
+  // If your server exposes WS on same origin:
+  const wsUrl = `${protocol}://${window.location.host}/api/usersOn`; // matches your express route + WS server
 
 const ws = new WebSocket(wsUrl);
 wsRef.current = ws;
