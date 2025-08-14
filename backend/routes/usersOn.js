@@ -3,6 +3,8 @@ import axios from "axios";
 import cookieParser from "cookie-parser";
 const router = express.Router();
 import USER from "../models/User.js";
+import { getWss } from "../server.js";
+import WebSocket from 'ws';
 import PublishedPosts from "../models/PublishedPosts.js";
 import DraftPosts from "../models/DraftPosts.js";
 import ScheduledPosts from "../models/ScheduledPosts.js";
@@ -110,8 +112,217 @@ const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY;
 // }
 
 
+function broadcastNewArticles(newArticles, topic, region) {
+  const wss = getWss();
+  wss.clients.forEach(client => {
+    if (client.readyState === WebSocket.OPEN) {
+      newArticles.forEach(article => {
+        client.send(JSON.stringify({
+          type: "new-article",
+          article, // singular for consistency
+          topic,
+          region,
+        }));
+      });
+    }
+  });
+}
+
+export async function streamArticles(ws, topic, region, page, limit) {
+  const normalizedTopic = topic.toLowerCase();
+  const skip = (page - 1) * limit;
+
+  const query = {
+    keyword: normalizedTopic,
+    region,
+    fetchedAt: { $gte: startOfToday() },
+  };
+
+  try {
+    // Fetch existing articles and distinct titles
+    const [existingArticles, existingTitles] = await Promise.all([
+      MainTopicsFeed.find(query)
+        .sort({ publishedAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      MainTopicsFeed.distinct("title", query),
+    ]);
+
+    // Send already existing articles for current page
+    for (const article of existingArticles) {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: "new-article", article }));
+      }
+    }
+
+    const totalCount = existingTitles.length;
+    const requiredCount = page * limit;
+
+    // How many are missing for this page
+    const missingCount = requiredCount - totalCount;
+
+    // If we already have enough, stop here
+    if (missingCount <= 0) return;
+
+    // Fetch exactly what's missing (not full limit each time)
+    const batchResults = await fetchGNewsArticles(
+      topic,
+      region,
+      missingCount, // ✅ only missing count
+      1,            // page param unused now in fetchGNewsArticles
+      existingTitles
+    );
+
+    if (!Array.isArray(batchResults) || batchResults.length === 0) return;
+
+    // Filter out duplicates (just in case)
+    const newArticles = batchResults.filter(
+      (art) => art?.title && !existingTitles.includes(art.title)
+    );
+
+    // Save and progressively send
+    for (const rawArticle of newArticles) {
+      const newArticle = {
+        keyword: normalizedTopic,
+        region,
+        title: rawArticle.title,
+        summary: rawArticle.summary || "",
+        content: rawArticle.content || "", // FULL content if available
+        url: rawArticle.url || "",
+        publishedAt: rawArticle.publishedAt
+          ? new Date(rawArticle.publishedAt)
+          : new Date(),
+        image: rawArticle.image || "",
+        language: rawArticle.language || "en",
+        fetchedAt: new Date(),
+      };
+
+      await MainTopicsFeed.create(newArticle);
+      existingTitles.push(newArticle.title);
+
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: "new-article", article: newArticle }));
+      }
+
+      // Small delay to simulate streaming
+      await new Promise((res) => setTimeout(res, 300));
+    }
+  } catch (err) {
+    console.error("❌ streamArticles error:", err);
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(
+        JSON.stringify({
+          type: "error",
+          message: "Failed to fetch articles",
+        })
+      );
+    }
+  }
+}
+
+async function fetchGNewsArticles(
+  query,
+  country = "in",
+  max = 9,
+  page = 1,
+  existingTitles = [],
+  alreadyFetchedDays = new Set() // optional in-memory cache
+) {
+  const API_KEY = process.env.GSNEWS_API_KEY;
+  const lang = "en";
+
+  // How many new articles we actually need
+  const neededCount = max; // since streamArticles now controls requiredCount
+
+ async function fetchFromRange(fromDate, toDate) {
+  let url = `https://gnews.io/api/v4/search` +
+            `?q=${encodeURIComponent(query)}` +
+            `&lang=${lang}` +
+            `&from=${encodeURIComponent(fromDate)}` +
+            `&to=${encodeURIComponent(toDate)}` +
+            `&max=100` + // get as many as possible
+            `&sortby=publishedAt` +
+            `&expand=content` +
+            `&apikey=${API_KEY}`;
+
+  // Only add country if it’s not 'Global'
+  if (country && country.toLowerCase() !== "global") {
+    url += `&country=${country}`;
+  }
+
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+  const data = await response.json();
+  return data.articles || [];
+}
 
 
+  try {
+    let allArticles = [];
+    const seen = new Set();
+
+    // Start search from 2 days ago
+    let datePointer = new Date();
+    datePointer.setDate(datePointer.getDate() - 2);
+
+    while (allArticles.length < neededCount) {
+      // Build a 3-day range
+      const toDate = new Date(datePointer);
+      const fromDate = new Date(datePointer);
+      fromDate.setDate(fromDate.getDate() - 6);
+
+      // Format ISO
+      const fromISO = fromDate.toISOString();
+      const toISO = toDate.toISOString();
+
+      // Skip if we’ve already fetched this exact range before
+      const cacheKey = `${fromISO}_${toISO}_${query}_${country}`;
+      if (alreadyFetchedDays.has(cacheKey)) {
+        datePointer.setDate(datePointer.getDate() - 3);
+        continue;
+      }
+
+      // Fetch articles for the range
+      const articles = await fetchFromRange(fromISO, toISO);
+      alreadyFetchedDays.add(cacheKey);
+
+      for (const a of articles) {
+        if (!a.title) continue;
+        const titleTrimmed = a.title.trim();
+        if (existingTitles.includes(titleTrimmed)) continue;
+        if (seen.has(titleTrimmed)) continue;
+        seen.add(titleTrimmed);
+
+        allArticles.push({
+          title: a.title,
+          summary: a.content || "",
+          url: a.url || "",
+          publishedAt: a.publishedAt || null,
+          image: a.image || "",
+        });
+
+        if (allArticles.length >= neededCount) break;
+      }
+
+      // Move back by 3 days
+      datePointer.setDate(datePointer.getDate() - 3);
+
+      // Safety stop: avoid going back more than 90 days
+      if ((new Date() - datePointer) / (1000 * 60 * 60 * 24) > 90) break;
+    }
+
+    // Sort ascending by published date
+    allArticles.sort(
+      (a, b) => new Date(a.publishedAt) - new Date(b.publishedAt)
+    );
+
+    return allArticles.slice(0, neededCount);
+  } catch (error) {
+    console.error("Error fetching articles:", error);
+    return [];
+  }
+}
 
 
 async function uploadToGCS(filePath, destFileName, mimeType) {

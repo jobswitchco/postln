@@ -7,6 +7,9 @@ dbConnection();
 import usersOnBoard from "./routes/usersOn.js";
 import agenda from "./routes/agenda.js";
 import { definePublishJob } from "./routes/publishPostJob.js";
+import { WebSocketServer } from 'ws';
+import { streamArticles } from './routes/usersOn.js';
+
 definePublishJob(agenda);
 app.use(express.json());
 // app.use(userAgent.express());
@@ -48,14 +51,53 @@ app.use((req, res, next) => {
 
 app.use("/usersOn", usersOnBoard);
 
+const server = http.createServer(app);
 
-const server = app.listen(8001, () => {
+// Create WebSocket server on the same HTTP server
+const wss = new WebSocketServer({ server });
+
+// Export a function so other modules can access the WebSocket server
+export function getWss() {
+  return wss;
+}
+
+
+server.listen(8001, () => {
   console.log('Server is running on 8001');
 });
 
 agenda.on("ready", () => {
   agenda.start();
   console.log("✅ Agenda started");
+});
+
+// WebSocket server basic events (optional setup here or in separate module)
+wss.on('connection', (ws) => {
+  console.log('New WS connection');
+
+  ws.on('message', async (message) => {
+    try {
+      const data = JSON.parse(message);
+
+      if (data.type === 'subscribe') {
+        const { topic, region, page = 1, limit = 9 } = data;
+        console.log(`Subscription request: topic=${topic}, region=${region}, page=${page}, limit=${limit}`);
+
+        // Call streamArticles to send articles over this ws connection
+        await streamArticles(ws, topic, region, page, limit);
+      } else {
+        // Handle other message types if needed
+        console.log('Unhandled WS message type:', data.type);
+      }
+    } catch (err) {
+      console.error('WS message error:', err);
+      ws.send(JSON.stringify({ type: 'error', message: 'Invalid message format or server error' }));
+    }
+  });
+
+  ws.on('close', () => {
+    console.log('WS connection closed');
+  });
 });
 
 
