@@ -21,11 +21,6 @@ import {
 } from "@mui/material";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
-import {
-  Close as CloseIcon,
-  SettingsOutlined as SettingsOutlinedIcon,
-  SupportAgent as SupportAgentIcon,
-} from "@mui/icons-material";
 import DateRangeOutlinedIcon from '@mui/icons-material/DateRangeOutlined';
 import SpaceDashboardOutlinedIcon from "@mui/icons-material/SpaceDashboardOutlined";
 import { deepOrange, blue, green, brown } from "@mui/material/colors";
@@ -145,7 +140,8 @@ const getHeaderTitle = () => {
       display: "flex",
       flexDirection: "column",
       height: "100vh",
-      backgroundColor: '#F5F7F8',
+      backgroundColor: "#F5F7F8",
+      pt: isSmallScreen ? "64px" : 0, 
     }}
   >
     {/* Top section (logo + nav links) */}
@@ -177,11 +173,7 @@ const getHeaderTitle = () => {
             PostLn
           </div>
         </Link>
-        {isSmallScreen && (
-          <IconButton onClick={handleDrawerToggle}>
-            <CloseIcon />
-          </IconButton>
-        )}
+       
       </Toolbar>
 
       <List sx={{ px: 1 }}>
