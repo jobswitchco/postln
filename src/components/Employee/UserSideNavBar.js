@@ -360,7 +360,7 @@ const getHeaderTitle = () => {
 
       <Typography variant="body2" sx={{ color: "#555", mb: 1 }}>
         Upgrade to $19/mo to get{" "}
-        <span style={{ fontWeight: 500, color: "#000" }}>50 Rewrites</span> instantly.
+        <span style={{ fontWeight: 500, color: "#000" }}>50 AI Rewrites</span> instantly.
       </Typography>
 
       <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
