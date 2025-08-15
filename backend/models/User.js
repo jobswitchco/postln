@@ -27,6 +27,15 @@ const User_Schema = new Schema({
 
     account_delete_code: {type : Number},
 
+    free_trial: {
+    type: Boolean,
+    default: true
+},
+
+free_trial_started_date:{
+    type: Date
+},
+
 
    last_login: {
   type: Date

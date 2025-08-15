@@ -42,74 +42,65 @@ const PERPLEXITY_API_URL = "https://api.perplexity.ai/chat/completions";
 const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY;
 
 
-// cron.schedule("*/5 * * * *", async () => {
-//   console.log("🔄 Checking fine-tune job statuses...");
+let fineTuneCron = null; // singleton instance
 
-//   try {
-//     const users = await USER.find({
-//       model_training_started: true,
-//       model_training_finished: false,
-//       fine_tune_id: { $exists: true }
-//     });
+const startFineTuneCron = () => {
+  // If cron already running, just return
+  if (fineTuneCron) {
+    console.log("⚡ Fine-tune cron already running, skipping start.");
+    return;
+  }
 
-//     for (const user of users) {
-//       const fineTuneId = user.fine_tune_id;
+  console.log("🚀 Starting fine-tune cron...");
 
-//       try {
-//         const fineTune = await openai.fineTuning.jobs.retrieve(fineTuneId);
-//         console.log(`🧠 ${user.username || user.email} | Status: ${fineTune.status}`);
+  fineTuneCron = cron.schedule("*/2 * * * *", async () => {
+    console.log("🔄 Checking fine-tune job statuses...");
 
-//         if (fineTune.status === "succeeded" && fineTune.fine_tuned_model) {
-//           user.model_training_finished = true;
-//           user.fine_tuned_model = fineTune.fine_tuned_model;
-//           await user.save();
-//           console.log(`✅ Model ready and saved for user ${user._id}`);
-//         } else if (fineTune.status === "failed") {
-//           user.model_training_finished = true;
-//           user.fine_tuned_model = null;
-//           await user.save();
-//           console.error(`❌ Training failed for user ${user._id}`);
-//         }
-//       } catch (err) {
-//         console.error(`⚠️ Error checking status for user ${user._id}:`, err.message);
-//       }
-//     }
-//   } catch (err) {
-//     console.error("🔥 Cron job error:", err.message);
-//   }
-// });
+    try {
+      const users = await USER.find({
+        model_training_started: true,
+        model_training_finished: false,
+        fine_tune_id: { $exists: true }
+      });
 
-// export async function generateLinkedInPost(article, modelId) {
-//   if (!article || !modelId) {
-//     throw new Error("Both article and modelId are required.");
-//   }
+      if (users.length === 0) {
+        console.log("✅ All fine-tune jobs finished, stopping cron...");
+        fineTuneCron.stop();
+        fineTuneCron = null;
+        return;
+      }
 
-//   const messages = [
-//     {
-//       role: "system",
-//       content: `You are a linkedIn Professional trained to write a linkedIn post like a specific user. Use their voice, tone, structure, and storytelling style.`,
-//     },
-//     {
-//       role: "user",
-//       content: `Write a LinkedIn post based on this article or draft:\n\n"${article}"\n\nOutput should resemble the user's style.`,
-//     },
-//   ];
+      for (const user of users) {
+        const fineTuneId = user.fine_tune_id;
 
-//   try {
-//     const response = await openai.chat.completions.create({
-//       model: modelId,
-//       messages,
-//       temperature: 0.7,
-//       max_tokens: 800,
-//     });
+        try {
+          const fineTune = await openai.fineTuning.jobs.retrieve(fineTuneId);
+          console.log(`🧠 ${user.username || user.email} | Status: ${fineTune.status}`);
 
-//     const post = response.choices[0].message.content.trim();
-//     return post;
-//   } catch (err) {
-//     console.error("❌ Error generating post:", err.message);
-//     throw err;
-//   }
-// }
+          if (fineTune.status === "succeeded" && fineTune.fine_tuned_model) {
+            user.model_training_finished = true;
+            user.fine_tuned_model = fineTune.fine_tuned_model;
+            await user.save();
+            console.log(`✅ Model ready for user ${user._id}`);
+          } else if (fineTune.status === "failed") {
+            user.model_training_finished = true;
+            user.fine_tuned_model = null;
+            await user.save();
+            console.error(`❌ Training failed for user ${user._id}`);
+          }
+        } catch (err) {
+          console.error(`⚠️ Error checking status for user ${user._id}:`, err.message);
+        }
+      }
+    } catch (err) {
+      console.error("🔥 Cron job error:", err.message);
+    }
+  }, {
+    scheduled: false // do not start automatically
+  });
+
+  fineTuneCron.start();
+};
 
 
 
@@ -692,29 +683,47 @@ router.post('/are-topics-added', authenticateToken, async function (req, res) {
 });
 
 router.get('/are-posts-analyzed', authenticateToken, async (req, res) => {
-  const user_id = req.user?.user_id;
-  const user = await USER.findById(user_id);
+  try {
+    const user_id = req.user?.user_id;
+    const user = await USER.findById(user_id);
 
-  if (!user) return res.status(404).json({ error: 'User not found' });
+    if (!user) return res.status(404).json({ error: 'User not found' });
 
-  const modelStarted = user.model_training_started;
-  const modelReady = user.model_training_finished;
+    const modelStarted = user.model_training_started;
+    const modelReady = user.model_training_finished;
 
-  let minutesLeft = null;
+    let minutesLeft = null;
+    let freeTrialStartedDate = user.free_trial_started_date
+      ? user.free_trial_started_date.toISOString()
+      : null;
 
-  if (modelStarted && !modelReady && user.model_start_time) {
-    const startedAt = new Date(user.model_start_time).getTime();
-    const now = Date.now();
-    const timeElapsed = Math.floor((now - startedAt) / 60000); // in minutes
-    minutesLeft = Math.max(0, 30 - timeElapsed); // Assuming 30 minutes max
+    // Calculate remaining time if model is started but not ready
+    if (modelStarted && !modelReady && user.model_start_time) {
+      const startedAt = new Date(user.model_start_time).getTime();
+      const now = Date.now();
+      const timeElapsed = Math.floor((now - startedAt) / 60000); // in minutes
+      minutesLeft = Math.max(0, 30 - timeElapsed); // Assuming 30 minutes max
+    }
+
+    // If model is ready and free_trial_started_date is not set, update it
+    if (modelStarted && modelReady && !user.free_trial_started_date) {
+      const nowISO = new Date();
+      user.free_trial_started_date = nowISO;
+      await user.save();
+      freeTrialStartedDate = nowISO.toISOString();
+    }
+
+    return res.json({
+      success: true,
+      model_started: modelStarted,
+      model_ready: modelReady,
+      minutes_left: minutesLeft,
+      free_trial_started_date: freeTrialStartedDate,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Server error' });
   }
-
-  return res.json({
-    success: true,
-    model_started: modelStarted,
-    model_ready: modelReady,
-    minutes_left: minutesLeft,
-  });
 });
 
 
@@ -876,15 +885,31 @@ router.get("/get-user-name-image", authenticateToken, async (req, res) => {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    const user = await USER.findById(userId).select("name picture");
+    // Fetch user with free_trial_started_date
+    const user = await USER.findById(userId).select("name picture free_trial_started_date");
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
+    // Calculate free trial days left
+    let freeTrialDaysLeft = null; // null if trial never started
+    const totalTrialDays = 7; // max free trial duration
+
+    if (user.free_trial_started_date) {
+      const now = new Date();
+      const trialStart = new Date(user.free_trial_started_date);
+      const diffTime = now - trialStart; // in milliseconds
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+      freeTrialDaysLeft = Math.max(totalTrialDays - diffDays, 0); // min 0
+    }
+
     res.json({
       name: user.name,
-      profilePicture: user.picture || null, // fallback to null if not set
+      profilePicture: user.picture || null,
+      freeTrialDaysLeft, // will be 0 if expired, null if never started
     });
+
   } catch (error) {
     console.error("Error fetching user data:", error);
     res.status(500).json({ message: "Server error" });
@@ -1046,36 +1071,30 @@ router.post('/analyze-writing-style', authenticateToken, async (req, res) => {
     return res.status(400).json({ error: 'LinkedIn URL is required' });
   }
 
-
   try {
-
+    // Mark user training started
     await USER.findByIdAndUpdate(user_id, {
-  model_training_started: true,
-  model_start_time: new Date(), // store the current timestamp
-});
-
-    const cloudFunctionUrl = 'https://user-persona-model-802722937988.us-central1.run.app';
-
-    const payload = {
-      user_id,
-      linkedinUrl
-    };
-
-    const response = await axios.post(cloudFunctionUrl, payload, {
-      headers: {
-        'Content-Type': 'application/json'
-      }
+      model_training_started: true,
+      model_start_time: new Date(),
     });
 
-    // console.log('cloudFunction response:', response.data);
+    // Call cloud function
+    const cloudFunctionUrl = 'https://user-persona-model-802722937988.us-central1.run.app';
+    const payload = { user_id, linkedinUrl };
+    const response = await axios.post(cloudFunctionUrl, payload, {
+      headers: { 'Content-Type': 'application/json' }
+    });
 
-    // res.json({ success: true });
+    // Start the cron only if not already running
+    startFineTuneCron();
 
+    res.json({ success: true, cloudResponse: response.data });
   } catch (err) {
     console.error('Style analysis failed:', err.response?.data || err.message);
     res.status(500).json({ error: 'Failed to analyze and save writing style' });
   }
 });
+
 
 
 

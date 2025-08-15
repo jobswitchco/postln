@@ -17,6 +17,7 @@ import {
   Menu,
   Divider,
   MenuItem,
+  LinearProgress
 } from "@mui/material";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
@@ -30,6 +31,9 @@ import SpaceDashboardOutlinedIcon from "@mui/icons-material/SpaceDashboardOutlin
 import { deepOrange, blue, green, brown } from "@mui/material/colors";
 import logo from "../../images/postln_logo.svg";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
+import "react-toastify/dist/ReactToastify.css";
+import { toast } from "react-toastify";
 
 const theme = createTheme({
   palette: {
@@ -45,13 +49,25 @@ const ResponsiveDrawer = ({ window }) => {
   const location = useLocation();
   const [greeting, setGreeting] = useState("");
   const [userName, setUserName] = useState("");
+  const [freeTrialDaysLeft, setFreeTrialLeftDays] = useState("");
   const [profilePicture, setProfilePicture] = useState("");
   // const baseUrl = "http://localhost:8001/usersOn";
       const baseUrl="/api/usersOn";
 
   const [currentTime, setCurrentTime] = useState(new Date());
+    const navigate = useNavigate();
 
 
+
+
+    const handleSessionExpired = () => {
+              toast.error("Session expired. Please log in again.");
+              setTimeout(() => {
+    
+                navigate('/professional/login');
+                
+              }, 1500);
+            };
 
 useEffect(() => {
   const interval = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -69,18 +85,26 @@ useEffect(() => {
 
   setGreeting(getGreeting());
 
-  const fetchUserName = async () => {
-    try {
-      const response = await axios.get(`${baseUrl}/get-user-name-image`, {
-        withCredentials: true,
-      });
-      setUserName(response.data.name);
-      setProfilePicture(response.data.profilePicture);
-    } catch (error) {
+const fetchUserName = async () => {
+  try {
+    const response = await axios.get(`${baseUrl}/get-user-name-image`, {
+      withCredentials: true,
+    });
+    setUserName(response.data.name);
+    setProfilePicture(response.data.profilePicture);
+    setFreeTrialLeftDays(response.data.freeTrialDaysLeft);
+  } catch (error) {
+    if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+      // Session expired, handle accordingly
+      handleSessionExpired();
+    } else {
       console.error("Failed to fetch user name:", error);
+      handleSessionExpired();
       setUserName("");
+      toast.error("Failed to fetch user information.");
     }
-  };
+  }
+};
 
   fetchUserName();
 }, []);
@@ -115,13 +139,44 @@ const getHeaderTitle = () => {
 
   const drawerWidth = 220;
 
-  const drawerContent = (
-    <Box sx={{ display: "flex", flexDirection: "column", height: "100vh", backgroundColor: '#F5F7F8' }}>
+ const drawerContent = (
+  <Box
+    sx={{
+      display: "flex",
+      flexDirection: "column",
+      height: "100vh",
+      backgroundColor: '#F5F7F8',
+    }}
+  >
+    {/* Top section (logo + nav links) */}
+    <Box sx={{ flexGrow: 1, overflowY: "auto" }}>
       <Toolbar sx={{ justifyContent: "space-between" }}>
-      <Link to="/" style={{ display: "flex", alignItems: "center", textDecoration: "none", color: "inherit" }}>
-           <img src={logo} alt="PostLn Logo" width="32" height="auto" style={{ display: "block" }} />
-           <div style={{ marginLeft: 2, fontWeight: 600, fontSize: "1.2rem" }}>PostLn</div>
-         </Link>
+        <Link
+          to="/"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            textDecoration: "none",
+            color: "inherit",
+          }}
+        >
+          <img
+            src={logo}
+            alt="PostLn Logo"
+            width="32"
+            height="auto"
+            style={{ display: "block" }}
+          />
+          <div
+            style={{
+              marginLeft: 2,
+              fontWeight: 600,
+              fontSize: "1.2rem",
+            }}
+          >
+            PostLn
+          </div>
+        </Link>
         {isSmallScreen && (
           <IconButton onClick={handleDrawerToggle}>
             <CloseIcon />
@@ -129,145 +184,208 @@ const getHeaderTitle = () => {
         )}
       </Toolbar>
 
-      
-
-     <List sx={{ px: 1 }}>
-      {/* Dashboard */}
-      <ListItem disablePadding>
-        <Link
-          to="/professional/dashboard"
-          style={{ textDecoration: "none", color: "black", width: "100%" }}
-          onClick={handleDrawerToggle}
-        >
-          <ListItemButton
-            selected={location.pathname === "/professional/dashboard"}
-            sx={{
-              backgroundColor: location.pathname === "/professional/dashboard" ? "#e3e3f3" : "transparent",
-              borderRadius: "6px",
-              py: 0.5,
-            }}
-          >
-            <ListItemIcon>
-              <SpaceDashboardOutlinedIcon
-                sx={{
-                  color: location.pathname === "/professional/dashboard" ? "#093FB4" : "#7F8CAA",
-                  transition: "color 0.3s",
-                }}
-              />
-            </ListItemIcon>
-            <ListItemText
-              primary="Dashboard"
-              primaryTypographyProps={{
-                sx: {
-                  color: location.pathname === "/professional/dashboard" ? "#093FB4" : "#7F8CAA",
-                  fontWeight: 400,
-                },
-              }}
-            />
-          </ListItemButton>
-        </Link>
-      </ListItem>
-
-      {/* My Posts */}
-      <ListItem disablePadding>
-        <Link
-          to="/professional/myposts"
-          style={{ textDecoration: "none", color: "black", width: "100%" }}
-          onClick={handleDrawerToggle}
-        >
-          <ListItemButton
-            selected={location.pathname === "/professional/myposts"}
-            sx={{
-              backgroundColor: location.pathname === "/professional/myposts" ? "#e3e3f3" : "transparent",
-              borderRadius: "6px",
-              py: 0.5,
-            }}
-          >
-            <ListItemIcon>
-              <DateRangeOutlinedIcon
-                sx={{
-                  color: location.pathname === "/professional/myposts" ? "#093FB4" : "#7F8CAA",
-                  transition: "color 0.3s",
-                }}
-              />
-            </ListItemIcon>
-            <ListItemText
-              primary="My posts"
-              primaryTypographyProps={{
-                sx: {
-                  color: location.pathname === "/professional/myposts" ? "#093FB4" : "#7F8CAA",
-                  fontWeight: 400,
-                },
-              }}
-            />
-          </ListItemButton>
-        </Link>
-      </ListItem>
-
-      {isSmallScreen && (
-           <ListItem disablePadding>
-        <Link
-          to="/professional/profile"
-          style={{ textDecoration: "none", color: "black", width: "100%" }}
-          onClick={handleDrawerToggle}
-        >
-          <ListItemButton
-            selected={location.pathname === "/professional/profile"}
-            sx={{
-              backgroundColor: location.pathname === "/professional/profile" ? "#e3e3f3" : "transparent",
-              borderRadius: "6px",
-              py: 0.5,
-            }}
-          >
-            <ListItemIcon>
-              <AccountCircleOutlinedIcon
-                sx={{
-                  color: location.pathname === "/professional/profile" ? "#093FB4" : "#7F8CAA",
-                  transition: "color 0.3s",
-                }}
-              />
-            </ListItemIcon>
-            <ListItemText
-              primary="Profile"
-              primaryTypographyProps={{
-                sx: {
-                  color: location.pathname === "/professional/profile" ? "#093FB4" : "#7F8CAA",
-                  fontWeight: 400,
-                },
-              }}
-            />
-          </ListItemButton>
-        </Link>
-      </ListItem>
-      )}
-
-   
-    </List>
-
-
-      <Box />
-
-      {/* <List>
+      <List sx={{ px: 1 }}>
+        {/* Dashboard */}
         <ListItem disablePadding>
-          <Link to="/professional/account/details" style={{ textDecoration: "none", color: "black", width: "100%" }} onClick={handleDrawerToggle}>
-            <ListItemButton>
-              <ListItemIcon><SettingsOutlinedIcon sx={{ color: brown[500] }} /></ListItemIcon>
-              <ListItemText primary="Settings" />
+          <Link
+            to="/professional/dashboard"
+            style={{ textDecoration: "none", color: "black", width: "100%" }}
+            onClick={handleDrawerToggle}
+          >
+            <ListItemButton
+              selected={location.pathname === "/professional/dashboard"}
+              sx={{
+                backgroundColor:
+                  location.pathname === "/professional/dashboard"
+                    ? "#e3e3f3"
+                    : "transparent",
+                borderRadius: "6px",
+                py: 0.5,
+              }}
+            >
+              <ListItemIcon>
+                <SpaceDashboardOutlinedIcon
+                  sx={{
+                    color:
+                      location.pathname === "/professional/dashboard"
+                        ? "#093FB4"
+                        : "#7F8CAA",
+                    transition: "color 0.3s",
+                  }}
+                />
+              </ListItemIcon>
+              <ListItemText
+                primary="Dashboard"
+                primaryTypographyProps={{
+                  sx: {
+                    color:
+                      location.pathname === "/professional/dashboard"
+                        ? "#093FB4"
+                        : "#7F8CAA",
+                    fontWeight: 400,
+                  },
+                }}
+              />
             </ListItemButton>
           </Link>
         </ListItem>
 
+        {/* My Posts */}
         <ListItem disablePadding>
-          <Link to="/professional/support" style={{ textDecoration: "none", color: "black", width: "100%" }} onClick={handleDrawerToggle}>
-            <ListItemButton>
-              <ListItemIcon><SupportAgentIcon sx={{ color: blue[500] }} /></ListItemIcon>
-              <ListItemText primary="Support" />
+          <Link
+            to="/professional/myposts"
+            style={{ textDecoration: "none", color: "black", width: "100%" }}
+            onClick={handleDrawerToggle}
+          >
+            <ListItemButton
+              selected={location.pathname === "/professional/myposts"}
+              sx={{
+                backgroundColor:
+                  location.pathname === "/professional/myposts"
+                    ? "#e3e3f3"
+                    : "transparent",
+                borderRadius: "6px",
+                py: 0.5,
+              }}
+            >
+              <ListItemIcon>
+                <DateRangeOutlinedIcon
+                  sx={{
+                    color:
+                      location.pathname === "/professional/myposts"
+                        ? "#093FB4"
+                        : "#7F8CAA",
+                    transition: "color 0.3s",
+                  }}
+                />
+              </ListItemIcon>
+              <ListItemText
+                primary="My posts"
+                primaryTypographyProps={{
+                  sx: {
+                    color:
+                      location.pathname === "/professional/myposts"
+                        ? "#093FB4"
+                        : "#7F8CAA",
+                    fontWeight: 400,
+                  },
+                }}
+              />
             </ListItemButton>
           </Link>
         </ListItem>
-      </List> */}
+
+        {/* Profile (only on mobile) */}
+        {isSmallScreen && (
+          <ListItem disablePadding>
+            <Link
+              to="/professional/profile"
+              style={{
+                textDecoration: "none",
+                color: "black",
+                width: "100%",
+              }}
+              onClick={handleDrawerToggle}
+            >
+              <ListItemButton
+                selected={location.pathname === "/professional/profile"}
+                sx={{
+                  backgroundColor:
+                    location.pathname === "/professional/profile"
+                      ? "#e3e3f3"
+                      : "transparent",
+                  borderRadius: "6px",
+                  py: 0.5,
+                }}
+              >
+                <ListItemIcon>
+                  <AccountCircleOutlinedIcon
+                    sx={{
+                      color:
+                        location.pathname === "/professional/profile"
+                          ? "#093FB4"
+                          : "#7F8CAA",
+                      transition: "color 0.3s",
+                    }}
+                  />
+                </ListItemIcon>
+                <ListItemText
+                  primary="Profile"
+                  primaryTypographyProps={{
+                    sx: {
+                      color:
+                        location.pathname === "/professional/profile"
+                          ? "#093FB4"
+                          : "#7F8CAA",
+                      fontWeight: 400,
+                    },
+                  }}
+                />
+              </ListItemButton>
+            </Link>
+          </ListItem>
+        )}
+      </List>
     </Box>
-  );
+
+    {/* Bottom fixed plan card */}
+  <Box
+  sx={{
+    p: 2,
+    borderTop: "1px solid #e0e0e0",
+  }}
+>
+  <Typography sx={{ fontWeight: 500, mb: 1, fontFamily : 'Inter', fontSize : '14px' }}>
+    Free trial expires in {freeTrialDaysLeft} days
+  </Typography>
+
+  {/* Progress bar */}
+<Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
+  <Box sx={{ flexGrow: 1, mr: 2 }}>
+    <LinearProgress
+      variant="determinate"
+      value={(freeTrialDaysLeft / 7) * 100} // corrected
+      sx={{
+        height: 8,
+        borderRadius: 5,
+        backgroundColor: "#e0e0e0",
+        "& .MuiLinearProgress-bar": {
+          backgroundColor: "#4f46e5",
+        },
+      }}
+    />
+  </Box>
+  <Typography color="text.secondary" sx={{ fontSize: '12px' }}>
+    {freeTrialDaysLeft} / 7 days
+  </Typography>
+</Box>
+
+
+  {/* Content */}
+  <Typography variant="body2" sx={{ color: "#555", mb: 1 }}>
+    Upgrade to $19/mo to get <span style={{ fontWeight : 500, color: '#000000'}}>50 Rewrites</span> instantly.
+  </Typography>
+
+  {/* Actions */}
+  <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+  <Typography
+    variant="body2"
+    sx={{
+      color: "#4f46e5",
+      fontWeight: 500,
+      cursor: "pointer",
+      "&:hover": { textDecoration: "underline" },
+    }}
+  >
+    Upgrade
+  </Typography>
+</Box>
+
+</Box>
+
+  </Box>
+);
+
 
   return (
     <ThemeProvider theme={theme}>
