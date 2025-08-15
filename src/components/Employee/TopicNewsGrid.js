@@ -606,7 +606,7 @@ wsRef.current = ws;
       {/* <Typography variant="caption" color="primary">
         #{selectedTopic}
       </Typography> */}
-      <Typography sx={{ mt: 0.5, fontSize: "14px", fontWeight: 500 }}>
+      <Typography sx={{ mt: 0.5, fontSize: "14px", fontWeight: 500, fontFamily : 'Inter' }}>
         {article.title}
       </Typography>
       <Box sx={{ mt: 1 }}>
@@ -774,6 +774,7 @@ wsRef.current = ws;
   onClose={() => {}}
   maxWidth="md"
   fullWidth
+  fullScreen={isMobile} // 👈 full screen on mobile
   disableEscapeKeyDown
   hideBackdrop={false}
 >
@@ -789,32 +790,20 @@ wsRef.current = ws;
   </DialogTitle>
 
   <DialogContent dividers>
-    {/* Show skeletons while loading summary */}
     {loadingArticle ? (
       <Box sx={{ mt: 1 }}>
-        <Skeleton variant="text" width="100%" height={20} />
-        <Skeleton variant="text" width="90%" height={20} />
-        <Skeleton variant="text" width="95%" height={20} />
-        <Skeleton variant="text" width="80%" height={20} />
-        <Skeleton variant="text" width="70%" height={20} />
-
-        <Skeleton variant="text" width="80%" height={20} sx={{ mt: 3}} />
-        <Skeleton variant="text" width="90%" height={20} />
-        <Skeleton variant="text" width="100%" height={20} />
-        <Skeleton variant="text" width="50%" height={20} />
-        <Skeleton variant="text" width="100%" height={20} />
-
-        <Skeleton variant="text" width="80%" height={20} sx={{ mt: 3}} />
-        <Skeleton variant="text" width="90%" height={20} />
-        <Skeleton variant="text" width="100%" height={20} />
-        <Skeleton variant="text" width="50%" height={20} />
-        <Skeleton variant="text" width="100%" height={20} />
+        {[...Array(5)].map((_, i) => (
+          <Skeleton key={i} variant="text" width={`${80 + (i % 3) * 10}%`} height={20} />
+        ))}
+        <Box sx={{ mt: 3 }}>
+          {[...Array(5)].map((_, i) => (
+            <Skeleton key={i} variant="text" width={`${80 + (i % 3) * 10}%`} height={20} />
+          ))}
+        </Box>
       </Box>
     ) : (
       activeArticle?.summary && (
-        <Box sx={{ mt: 1 }}>
-          {renderFormattedSummary(activeArticle.summary)}
-        </Box>
+        <Box sx={{ mt: 1 }}>{renderFormattedSummary(activeArticle.summary)}</Box>
       )
     )}
   </DialogContent>
@@ -833,10 +822,7 @@ wsRef.current = ws;
         py: 0.7,
         color: "#FFFFFF",
         cursor: "pointer",
-        "&:hover": {
-          background: "#004030",
-          color: "#FFFFFF",
-        },
+        "&:hover": { background: "#004030", color: "#FFFFFF" },
       }}
     >
       <Typography sx={{ fontSize: isMobile ? "14px" : "16px" }}>
@@ -852,10 +838,7 @@ wsRef.current = ws;
         px: 3,
         py: 0.7,
         cursor: "pointer",
-        "&:hover": {
-          background: "#748873",
-          color: "#FFFFFF",
-        },
+        "&:hover": { background: "#748873", color: "#FFFFFF" },
       }}
     >
       <Typography sx={{ fontSize: isMobile ? "14px" : "16px" }}>
