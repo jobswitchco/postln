@@ -330,58 +330,61 @@ const getHeaderTitle = () => {
 
     {/* Bottom fixed plan card */}
   <Box
-  sx={{
-    p: 2,
-    borderTop: "1px solid #e0e0e0",
-  }}
->
-  <Typography sx={{ fontWeight: 500, mb: 1, fontFamily : 'Inter', fontSize : '14px' }}>
-    Free trial expires in {freeTrialDaysLeft} days
-  </Typography>
-
-  {/* Progress bar */}
-<Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
-  <Box sx={{ flexGrow: 1, mr: 2 }}>
-    <LinearProgress
-      variant="determinate"
-      value={(freeTrialDaysLeft / 7) * 100} // corrected
       sx={{
-        height: 8,
-        borderRadius: 5,
-        backgroundColor: "#e0e0e0",
-        "& .MuiLinearProgress-bar": {
-          backgroundColor: "#4f46e5",
-        },
+        p: 2,
+        borderTop: "1px solid #e0e0e0",
+        backgroundColor: "#F5F7F8",
+        flexShrink: 0,
+        ...(isSmallScreen && {
+          position: "fixed",
+          bottom: 0,
+          left: 0,
+          width: drawerWidth,
+          zIndex: 1300,
+        }),
       }}
-    />
-  </Box>
-  <Typography color="text.secondary" sx={{ fontSize: '12px' }}>
-    {freeTrialDaysLeft} / 7 days
-  </Typography>
-</Box>
+    >
+      <Typography sx={{ fontWeight: 500, mb: 1, fontFamily: "Inter", fontSize: "14px" }}>
+        Free trial expires in {freeTrialDaysLeft} days
+      </Typography>
 
+      <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
+        <Box sx={{ flexGrow: 1, mr: 2 }}>
+          <LinearProgress
+            variant="determinate"
+            value={(freeTrialDaysLeft / 7) * 100}
+            sx={{
+              height: 8,
+              borderRadius: 5,
+              backgroundColor: "#e0e0e0",
+              "& .MuiLinearProgress-bar": { backgroundColor: "#4f46e5" },
+            }}
+          />
+        </Box>
+        <Typography color="text.secondary" sx={{ fontSize: "12px" }}>
+          {freeTrialDaysLeft} / 7 days
+        </Typography>
+      </Box>
 
-  {/* Content */}
-  <Typography variant="body2" sx={{ color: "#555", mb: 1 }}>
-    Upgrade to $19/mo to get <span style={{ fontWeight : 500, color: '#000000'}}>50 Rewrites</span> instantly.
-  </Typography>
+      <Typography variant="body2" sx={{ color: "#555", mb: 1 }}>
+        Upgrade to $19/mo to get{" "}
+        <span style={{ fontWeight: 500, color: "#000" }}>50 Rewrites</span> instantly.
+      </Typography>
 
-  {/* Actions */}
-  <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-  <Typography
-    variant="body2"
-    sx={{
-      color: "#4f46e5",
-      fontWeight: 500,
-      cursor: "pointer",
-      "&:hover": { textDecoration: "underline" },
-    }}
-  >
-    Upgrade
-  </Typography>
-</Box>
-
-</Box>
+      <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: "#4f46e5",
+            fontWeight: 500,
+            cursor: "pointer",
+            "&:hover": { textDecoration: "underline" },
+          }}
+        >
+          Upgrade
+        </Typography>
+      </Box>
+      </Box>
 
   </Box>
 );
