@@ -23,7 +23,7 @@ const LinkedInStyleAnalyzer = () => {
   const [toastOpen, setToastOpen] = useState(false);
   // const baseUrl = "http://localhost:8001/usersOn";
       const baseUrl="/api/usersOn";
-
+ const [urlError, setUrlError] = useState("");
   const navigate = useNavigate();
   const [showLoadingAnimation, setShowLoadingAnimation] = useState(false);
  const [minutesLeft, setMinutesLeft] = useState(null);
@@ -58,25 +58,36 @@ useEffect(() => {
 
   return () => clearInterval(interval);
 }, []);
-  const handleAnalyze = async () => {
-    setLoading(true);
-    try {
-      const res = await axios.post(baseUrl + "/analyze-writing-style", {
-        linkedinUrl,
-      }, { withCredentials: true });
+ 
 
-      if (res.data.success) {
-        setToastOpen(true);
-        navigate("/professional/dashboard");
-      } else {
-        toast.error("Network Error! Please try again.");
-      }
-    } catch (error) {
-      console.error("Style analysis failed:", error);
-    } finally {
-      setLoading(false);
+const handleAnalyze = async () => {
+  // Reset previous error
+  setUrlError("");
+
+  // Basic LinkedIn URL validation
+  if (!linkedinUrl.startsWith("https://www.linkedin.com/")) {
+    setUrlError("Invalid URL. Must start with https://www.linkedin.com/");
+    return;
+  }
+
+  setLoading(true);
+  try {
+    const res = await axios.post(baseUrl + "/analyze-writing-style", {
+      linkedinUrl,
+    }, { withCredentials: true });
+
+    if (res.data.success) {
+      setToastOpen(true);
+      navigate("/professional/dashboard");
+    } else {
+      toast.error("Network Error! Please try again.");
     }
-  };
+  } catch (error) {
+    console.error("Style analysis failed:", error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const SkeletonCard = () => (
     <Card
@@ -213,16 +224,18 @@ This takes up to <strong>30 minutes</strong>. Sit back, relax, and we'll notify 
           <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
             Enter your LinkedIn profile link to analyze your writing style using AI.
           </Typography>
+        <TextField
+          label="LinkedIn Profile URL"
+          placeholder="e.g. https://www.linkedin.com/in/bhaskarsriram"
+          fullWidth
+          variant="outlined"
+          value={linkedinUrl}
+          onChange={(e) => setLinkedinUrl(e.target.value)}
+          error={!!urlError} // highlights the input in red
+          helperText={urlError} // shows the error message
+          sx={{ mb: 2 }}
+        />
 
-          <TextField
-            label="LinkedIn Profile URL"
-            placeholder="e.g. https://www.linkedin.com/in/bhaskarsriram"
-            fullWidth
-            variant="outlined"
-            value={linkedinUrl}
-            onChange={(e) => setLinkedinUrl(e.target.value)}
-            sx={{ mb: 2 }}
-          />
 
           <Button
             variant="contained"
