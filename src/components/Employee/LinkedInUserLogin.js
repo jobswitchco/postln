@@ -262,15 +262,16 @@ function LinkedInUserLogin() {
         paddingX: '20px',
         pt: 10
       }}>
-        Welcome to your Next Career Move.
+        Welcome to PostLn.
       </Typography>
 
       <Typography textAlign="start" sx={{ fontSize: '22px', color: 'white', paddingX: '20px' }}>
-        Unlock new opportunities for unmatched visibility and growth.
+        Instantly craft AI-powered LinkedIn content in your voice, 
+      grow your audience, and schedule posts effortlessly.
       </Typography>
     </Box>
 
-    <Box display="flex" flexDirection="column" margin="auto" padding={1}>
+    <Box display="flex" flexDirection="column" margin="auto" padding={1} mt={5}>
       <Rating
         sx={{ paddingX: '20px' }}
         name="half-rating-read"
@@ -285,7 +286,7 @@ function LinkedInUserLogin() {
         paddingX: '20px',
         paddingTop: '2%'
       }}>
-        "We're excited about this game-changing platform for job switching..."
+        "We're excited about this game-changing platform for Linkedin..."
       </Typography>
 
       <Stack
@@ -297,10 +298,10 @@ function LinkedInUserLogin() {
         <Avatar alt="Karan Jaiswal" sx={{ width: 40, height: 40 }} />
         <Box>
           <Typography sx={{ fontSize: '14px', color: 'white' }}>
-            Karan Jaiswal
+            Priya Singh
           </Typography>
           <Typography sx={{ fontSize: '12px', color: '#E4F1FF' }}>
-            Recruitment, BuzzerStudio
+         Public Speaker
           </Typography>
         </Box>
       </Stack>
