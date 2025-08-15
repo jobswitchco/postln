@@ -17,6 +17,7 @@ const MainTopics_Schema = new Schema({
     index: true // optional: helps distinct() & duplicate checks
   },
   url: String,
+  isCleaned: { type: Boolean, default: false},
   summary: String,
   sources: [{ type: String }],
   publishedAt: Date,

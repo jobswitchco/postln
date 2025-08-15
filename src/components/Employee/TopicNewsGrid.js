@@ -38,12 +38,13 @@ const countryOptions = Object.entries(
   countries.getNames("en", { select: "official" })
 ).map(([code, name]) => ({ code, name }));
 
-const truncate = (text, limit = 160) =>
+const truncate = (text, limit = 220) =>
   text.length > limit ? text.slice(0, limit) + "..." : text;
 
 export default function TopicNewsGrid() {
   const [openDialog, setOpenDialog] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loadingArticle, setLoadingArticle] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [activeArticle, setActiveArticle] = useState(null);
   const [showRewriteDialog, setShowRewriteDialog] = useState(false);
@@ -73,7 +74,6 @@ export default function TopicNewsGrid() {
   const [anchorEl, setAnchorEl] = useState(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const limit = 9;
-
 
   const handleClick = (event) => setAnchorEl(event.currentTarget);
   const handleClose = () => setAnchorEl(null);
@@ -163,11 +163,35 @@ export default function TopicNewsGrid() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, [isMobile, showAllCards]);
 
+
+
   const handleTabChange = (event, newValue) => setSelectedTopic(newValue);
-  const handleCardClick = (article) => {
-    setActiveArticle(article);
-    setOpenDialog(true);
-  };
+ 
+const handleCardClick = async (article) => {
+
+  console.log('article::::::::::::: ', article);
+  setActiveArticle(article);
+  setOpenDialog(true);
+  setLoadingArticle(true);
+
+
+
+  try {
+    const res = await axios.get(`${baseUrl}/articles/clean/${article._id}`);
+    setActiveArticle(prev => ({
+      ...prev,
+      summary: res.data.cleanedSummary || prev.summary,
+    }));
+  } catch (err) {
+    console.error("Error fetching cleaned article:", err);
+  } finally {
+    setLoadingArticle(false);
+  }
+};
+
+
+
+
   const handleCloseDialog = () => {
     setOpenDialog(false);
     setActiveArticle(null);
@@ -194,9 +218,8 @@ const setupWebSocket = (topic, region, page = 1, limit = 9) => {
     try { wsRef.current.close(); } catch {}
     wsRef.current = null;
   }
-  // const ws = new WebSocket("ws://localhost:8001");
 
-   const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
 
   // Build WS URL dynamically
   // If your server exposes WS on same origin:
@@ -204,7 +227,6 @@ const setupWebSocket = (topic, region, page = 1, limit = 9) => {
 
 const ws = new WebSocket(wsUrl);
 wsRef.current = ws;
-
 
 
   // ✅ Only reset requestedCount for first page
@@ -228,6 +250,8 @@ wsRef.current = ws;
     try {
       const message = JSON.parse(event.data);
       if (message.type === "new-article" && message.article) {
+  console.log("Incoming WS article:", message.article);
+
         setArticles((prev) => {
           if (prev.find((a) => a.title === message.article.title)) return prev;
           return [...prev, message.article];
@@ -537,6 +561,7 @@ wsRef.current = ws;
             </Menu>
           </Box>
         </Box>
+
         <Box
           mt={0}
           sx={{
@@ -581,7 +606,7 @@ wsRef.current = ws;
       {/* <Typography variant="caption" color="primary">
         #{selectedTopic}
       </Typography> */}
-      <Typography sx={{ mt: 0.5, fontSize: "14px", fontWeight: 500, fontFamily: 'Inter' }}>
+      <Typography sx={{ mt: 0.5, fontSize: "14px", fontWeight: 500 }}>
         {article.title}
       </Typography>
       <Box sx={{ mt: 1 }}>
@@ -743,74 +768,104 @@ wsRef.current = ws;
               </Dialog>
       
               {/* Dialog */}
-              <Dialog
-                open={openDialog}
-                onClose={() => {}}
-                maxWidth="md"
-                fullWidth
-                disableEscapeKeyDown
-                hideBackdrop={false}
-              >
-                <DialogTitle sx={{ fontSize: isMobile ? "15px" : "18px", fontWeight: 500 }}>
-                  {activeArticle?.title}
-                  <IconButton
-                    aria-label="close"
-                    onClick={handleCloseDialog}
-                    sx={{ position: "absolute", right: 2, top: 8 }}
-                  >
-                    <CloseIcon />
-                  </IconButton>
-                </DialogTitle>
-      
-                <DialogContent dividers>
-               {activeArticle?.summary && (
+
+<Dialog
+  open={openDialog}
+  onClose={() => {}}
+  maxWidth="md"
+  fullWidth
+  disableEscapeKeyDown
+  hideBackdrop={false}
+>
+  <DialogTitle sx={{ fontSize: isMobile ? "15px" : "18px", fontWeight: 500 }}>
+    {activeArticle?.title || <Skeleton width="60%" />}
+    <IconButton
+      aria-label="close"
+      onClick={handleCloseDialog}
+      sx={{ position: "absolute", right: 2, top: 8 }}
+    >
+      <CloseIcon />
+    </IconButton>
+  </DialogTitle>
+
+  <DialogContent dividers>
+    {/* Show skeletons while loading summary */}
+    {loadingArticle ? (
+      <Box sx={{ mt: 1 }}>
+        <Skeleton variant="text" width="100%" height={20} />
+        <Skeleton variant="text" width="90%" height={20} />
+        <Skeleton variant="text" width="95%" height={20} />
+        <Skeleton variant="text" width="80%" height={20} />
+        <Skeleton variant="text" width="70%" height={20} />
+
+        <Skeleton variant="text" width="80%" height={20} sx={{ mt: 3}} />
+        <Skeleton variant="text" width="90%" height={20} />
+        <Skeleton variant="text" width="100%" height={20} />
+        <Skeleton variant="text" width="50%" height={20} />
+        <Skeleton variant="text" width="100%" height={20} />
+
+        <Skeleton variant="text" width="80%" height={20} sx={{ mt: 3}} />
+        <Skeleton variant="text" width="90%" height={20} />
+        <Skeleton variant="text" width="100%" height={20} />
+        <Skeleton variant="text" width="50%" height={20} />
+        <Skeleton variant="text" width="100%" height={20} />
+      </Box>
+    ) : (
+      activeArticle?.summary && (
         <Box sx={{ mt: 1 }}>
           {renderFormattedSummary(activeArticle.summary)}
         </Box>
-      )}
-                </DialogContent>
-      
-                <DialogActions sx={{ px: 3, py: 2 }}>
-                  <Box
-                    onClick={() => {
-                      const combinedText = `${activeArticle?.title}\n\n${activeArticle?.summary}`;
-                      setPostText(combinedText);
-                      setShowRewriteDialog(true);
-                    }}
-                    sx={{
-                      background: "#093FB4",
-                      borderRadius: "26px",
-                      px: 3,
-                      py: 0.7,
-                      color: "#FFFFFF",
-                      cursor: "pointer",
-                      "&:hover": {
-                        background: "#004030",
-                        color: "#FFFFFF",
-                      },
-                    }}
-                  >
-                    <Typography sx={{ fontSize : isMobile ? '14px' : '16px'}}>Generate Post</Typography>
-                  </Box>
-      
-                  <Box
-                    onClick={handleCloseDialog}
-                    sx={{
-                      background: "#D7D7D7",
-                      borderRadius: "26px",
-                      px: 3,
-                      py: 0.7,
-                      cursor: "pointer",
-                      "&:hover": {
-                        background: "#748873",
-                        color: "#FFFFFF",
-                      },
-                    }}
-                  >
-                    <Typography sx={{ fontSize : isMobile ? '14px' : '16px'}}>Back</Typography>
-                  </Box>
-                </DialogActions>
-              </Dialog>
+      )
+    )}
+  </DialogContent>
+
+  <DialogActions sx={{ px: 3, py: 2 }}>
+    <Box
+      onClick={() => {
+        const combinedText = `${activeArticle?.title}\n\n${activeArticle?.summary}`;
+        setPostText(combinedText);
+        setShowRewriteDialog(true);
+      }}
+      sx={{
+        background: "#093FB4",
+        borderRadius: "26px",
+        px: 3,
+        py: 0.7,
+        color: "#FFFFFF",
+        cursor: "pointer",
+        "&:hover": {
+          background: "#004030",
+          color: "#FFFFFF",
+        },
+      }}
+    >
+      <Typography sx={{ fontSize: isMobile ? "14px" : "16px" }}>
+        Generate Post
+      </Typography>
+    </Box>
+
+    <Box
+      onClick={handleCloseDialog}
+      sx={{
+        background: "#D7D7D7",
+        borderRadius: "26px",
+        px: 3,
+        py: 0.7,
+        cursor: "pointer",
+        "&:hover": {
+          background: "#748873",
+          color: "#FFFFFF",
+        },
+      }}
+    >
+      <Typography sx={{ fontSize: isMobile ? "14px" : "16px" }}>
+        Back
+      </Typography>
+    </Box>
+  </DialogActions>
+</Dialog>
+
+
       
               {showRewriteDialog && (
                 <GenerateWithAI

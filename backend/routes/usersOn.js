@@ -112,21 +112,25 @@ const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY;
 // }
 
 
-function broadcastNewArticles(newArticles, topic, region) {
-  const wss = getWss();
-  wss.clients.forEach(client => {
-    if (client.readyState === WebSocket.OPEN) {
-      newArticles.forEach(article => {
-        client.send(JSON.stringify({
-          type: "new-article",
-          article, // singular for consistency
-          topic,
-          region,
-        }));
-      });
+
+function cleanSummarizeInBackground(articles) {
+  // Run in next tick so main insert API isn't blocked
+  setImmediate(async () => {
+    for (const article of articles) {
+      try {
+        const cleanedSummary = await cleanAndSummarize(article.content || article.summary);
+
+        await MainTopicsFeed.updateOne(
+          { _id: article._id },
+          { $set: { summary : cleanedSummary, isCleaned: true } }
+        );
+      } catch (err) {
+        console.error(`❌ Error cleaning article ${article._id}:`, err);
+      }
     }
   });
 }
+
 
 export async function streamArticles(ws, topic, region, page, limit) {
   const normalizedTopic = topic.toLowerCase();
@@ -139,7 +143,7 @@ export async function streamArticles(ws, topic, region, page, limit) {
   };
 
   try {
-    // Fetch existing articles and distinct titles
+    // Fetch existing articles & titles
     const [existingArticles, existingTitles] = await Promise.all([
       MainTopicsFeed.find(query)
         .sort({ publishedAt: -1 })
@@ -158,37 +162,34 @@ export async function streamArticles(ws, topic, region, page, limit) {
 
     const totalCount = existingTitles.length;
     const requiredCount = page * limit;
-
-    // How many are missing for this page
     const missingCount = requiredCount - totalCount;
 
-    // If we already have enough, stop here
     if (missingCount <= 0) return;
 
-    // Fetch exactly what's missing (not full limit each time)
+    // Fetch new batch
     const batchResults = await fetchGNewsArticles(
       topic,
       region,
-      missingCount, // ✅ only missing count
-      1,            // page param unused now in fetchGNewsArticles
+      missingCount,
+      1,
       existingTitles
     );
 
     if (!Array.isArray(batchResults) || batchResults.length === 0) return;
 
-    // Filter out duplicates (just in case)
     const newArticles = batchResults.filter(
       (art) => art?.title && !existingTitles.includes(art.title)
     );
 
-    // Save and progressively send
+    const insertedArticles = [];
+
     for (const rawArticle of newArticles) {
       const newArticle = {
         keyword: normalizedTopic,
         region,
         title: rawArticle.title,
         summary: rawArticle.summary || "",
-        content: rawArticle.content || "", // FULL content if available
+        content: rawArticle.content || "",
         url: rawArticle.url || "",
         publishedAt: rawArticle.publishedAt
           ? new Date(rawArticle.publishedAt)
@@ -198,16 +199,27 @@ export async function streamArticles(ws, topic, region, page, limit) {
         fetchedAt: new Date(),
       };
 
-      await MainTopicsFeed.create(newArticle);
-      existingTitles.push(newArticle.title);
+      // Save to DB (returns document with _id)
+      const saved = await MainTopicsFeed.create(newArticle);
 
+      insertedArticles.push(saved);
+      existingTitles.push(saved.title);
+
+      // ✅ Send saved doc so it includes _id
       if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: "new-article", article: newArticle }));
+        ws.send(JSON.stringify({ type: "new-article", article: saved }));
       }
 
-      // Small delay to simulate streaming
-      await new Promise((res) => setTimeout(res, 300));
+      await new Promise((res) => setTimeout(res, 300)); // avoid WS spam
     }
+
+    // 🚀 Optionally trigger summarization
+    if (insertedArticles.length > 0) {
+      setImmediate(() => {
+        cleanSummarizeInBackground(insertedArticles);
+      });
+    }
+
   } catch (err) {
     console.error("❌ streamArticles error:", err);
     if (ws.readyState === WebSocket.OPEN) {
@@ -220,6 +232,8 @@ export async function streamArticles(ws, topic, region, page, limit) {
     }
   }
 }
+
+
 
 async function fetchGNewsArticles(
   query,
@@ -323,6 +337,117 @@ async function fetchGNewsArticles(
     return [];
   }
 }
+
+
+
+async function cleanAndSummarize(content) { 
+
+  if (!content) {
+    console.log("No content provided.");
+    return { content: "" };
+  }
+
+  const prompt = `
+You are a professional editor. Clean and format the following news article **without shortening it unnecessarily**.
+
+Cleaning rules:
+- Remove advertisements, subscription prompts, unrelated links, or promotional text.
+- Keep all relevant and factual information from the original article.
+- Preserve the original level of detail — do NOT overly shorten or summarize.
+- Keep it neutral and avoid speculation.
+
+Formatting rules:
+- Use "###" for subheadings
+- Use "-" for bullet points
+- Use **bold** for emphasis
+- Organize the article for readability
+- No fluff, no repetition
+
+Return only the cleaned and formatted article, without any extra explanation.
+
+Article:
+${content}
+`;
+
+  try {
+    console.log("Sending request to OpenAI...");
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o", // faster & cheaper than gpt-4-turbo
+      messages: [
+        {
+          role: "system",
+          content: "You are a helpful article cleaner and formatter.",
+        },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.2,
+    });
+
+    console.log("OpenAI API response received:", completion);
+
+    const cleanedArticle = completion?.choices?.[0]?.message?.content?.trim();
+
+    console.log("Extracted cleaned article:", cleanedArticle);
+
+    if (!cleanedArticle) {
+      console.log("No cleaned content returned, using original content.");
+      return { content };
+    }
+
+    return {
+      content: cleanedArticle,
+    };
+  } catch (err) {
+    console.error("Error cleaning article:", err);
+    return {content };
+  }
+}
+
+
+
+
+router.get("/articles/clean/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Find article in TopicsGrid
+    const article = await MainTopicsFeed.findById(id);
+    if (!article) {
+      return res.status(404).json({ error: "Article not found" });
+    }
+
+    // If already cleaned, return instantly
+    if (article.isCleaned) {
+      return res.json({
+        title: article.title,
+        cleanedSummary: article.summary,
+      });
+    }
+
+    // Clean using GPT
+    const cleaned = await cleanAndSummarize(article.summary);
+
+    // Some GPT responses may return "content" instead of "summary"
+    const finalSummary = cleaned.content || cleaned.summary || article.summary;
+
+    // Save back to DB
+    article.summary = finalSummary;
+    article.isCleaned = true;
+    await article.save();
+
+    // Return cleaned version
+    return res.json({
+      title: article.title,
+      cleanedSummary: finalSummary,
+    });
+
+  } catch (error) {
+    console.error("Error in /articles/clean/:id:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 
 
 async function uploadToGCS(filePath, destFileName, mimeType) {
