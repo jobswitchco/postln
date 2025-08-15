@@ -226,6 +226,12 @@ export async function streamArticles(ws, topic, region, page, limit) {
 
 
 
+const VALID_COUNTRIES = new Set([
+  "au","br","ca","cn","eg","fr","de","gr","hk","in","ie","it","jp",
+  "nl","no","pk","pe","ph","pt","ro","ru","sg","es","se","ch","tw",
+  "ua","gb","us"
+]);
+
 async function fetchGNewsArticles(
   query,
   country = "in",
@@ -235,39 +241,40 @@ async function fetchGNewsArticles(
   alreadyFetchedDays = new Set() // optional in-memory cache
 ) {
   const API_KEY = process.env.GSNEWS_API_KEY;
+
   const lang = "en";
 
-  // How many new articles we actually need
-  const neededCount = max; // since streamArticles now controls requiredCount
+  const neededCount = max;
 
- async function fetchFromRange(fromDate, toDate) {
-  let url = `https://gnews.io/api/v4/search` +
-            `?q=${encodeURIComponent(query)}` +
-            `&lang=${lang}` +
-            `&from=${encodeURIComponent(fromDate)}` +
-            `&to=${encodeURIComponent(toDate)}` +
-            `&max=100` + // get as many as possible
-            `&sortby=publishedAt` +
-            `&expand=content` +
-            `&apikey=${API_KEY}`;
+  async function fetchFromRange(fromDate, toDate) {
+    let url = `https://gnews.io/api/v4/search` +
+              `?q=${encodeURIComponent(query)}` +
+              `&lang=${lang}` +
+              `&from=${encodeURIComponent(fromDate)}` +
+              `&to=${encodeURIComponent(toDate)}` +
+              `&max=100` +
+              `&sortby=publishedAt` +
+              `&expand=content` +
+              `&apikey=${API_KEY}`;
 
-  // Only add country if it’s not 'Global'
-  if (country && country.toLowerCase() !== "global") {
-    url += `&country=${country}`;
+    const cLower = country?.toLowerCase();
+
+    // Only add country if it's valid and not 'global'
+    if (cLower && cLower !== "global" && VALID_COUNTRIES.has(cLower)) {
+      url += `&country=${cLower}`;
+    }
+
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+    const data = await response.json();
+    return data.articles || [];
   }
-
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-  const data = await response.json();
-  return data.articles || [];
-}
-
 
   try {
     let allArticles = [];
     const seen = new Set();
 
-    // Start search from 2 days ago
+    // Start from 2 days ago
     let datePointer = new Date();
     datePointer.setDate(datePointer.getDate() - 2);
 
@@ -277,18 +284,16 @@ async function fetchGNewsArticles(
       const fromDate = new Date(datePointer);
       fromDate.setDate(fromDate.getDate() - 6);
 
-      // Format ISO
       const fromISO = fromDate.toISOString();
       const toISO = toDate.toISOString();
 
-      // Skip if we’ve already fetched this exact range before
+      // Skip already fetched ranges
       const cacheKey = `${fromISO}_${toISO}_${query}_${country}`;
       if (alreadyFetchedDays.has(cacheKey)) {
         datePointer.setDate(datePointer.getDate() - 3);
         continue;
       }
 
-      // Fetch articles for the range
       const articles = await fetchFromRange(fromISO, toISO);
       alreadyFetchedDays.add(cacheKey);
 
@@ -328,7 +333,6 @@ async function fetchGNewsArticles(
     return [];
   }
 }
-
 
 
 async function cleanAndSummarize(content) { 

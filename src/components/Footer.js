@@ -213,7 +213,7 @@ export default function Footer() {
           <Box display="flex" justifyContent="flex-start" gap={2}>
            
             <IconButton
-              href="https://www.linkedin.com/company/newrole-in"
+              href="https://www.linkedin.com/company/postln/"
               target="_blank"
               color="inherit"
               sx={{ "&:hover": { color: "#E4405F" } }}
@@ -222,7 +222,7 @@ export default function Footer() {
               <LinkedInIcon sx={{ fontSize: 34 }} />
             </IconButton>
             <IconButton
-              href="https://x.com/newrole_in"
+              href="https://x.com/ibhaskarsriram"
               target="_blank"
               color="inherit"
               sx={{ "&:hover": { color: "#1DA1F2" } }}
