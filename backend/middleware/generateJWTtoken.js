@@ -6,7 +6,7 @@ const generateJWTtoken = async (user_id, email) => {
   return jwt.sign(
     { user_id: user_id, user_email: email },
     JWT_SECRET,
-    { expiresIn: "24h" }
+    { expiresIn: "7d" }
   );
 };
 
