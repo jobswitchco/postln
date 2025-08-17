@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { Link } from "react-router-dom";
+
 import {
   Box,
   Typography,
@@ -15,7 +16,7 @@ import {
   OutlinedInput,
   Tooltip,
    useMediaQuery,
-  useTheme
+  useTheme,
 } from "@mui/material";
 import CancelIcon from "@mui/icons-material/Cancel";
 import logo from "../../images/postln_logo.svg";
@@ -33,10 +34,7 @@ function CategorySelector() {
   const [showTopicSave, setShowTopicSave] = useState(false);
    const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-
-  // const baseUrl = "http://localhost:8001/usersOn";
       const baseUrl="/api/usersOn";
-
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
@@ -50,22 +48,37 @@ function CategorySelector() {
     }
   };
 
-  useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const res = await axios.get(baseUrl + "/get-categories", {
-          withCredentials: true,
-        });
-        setCategories(res.data.categories || []);
-      } catch (err) {
-        toast.error("Failed to load categories.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
+useEffect(() => {
+  const init = async () => {
+    setIsLoading(true);
+    try {
+      // 1. Fetch categories
+      const res = await axios.get(baseUrl + "/get-categories", {
+        withCredentials: true,
+      });
+      setCategories(res.data.categories || []);
 
-    fetchCategories();
-  }, []);
+      // 2. Check post analysis status
+      const postAnalysisStatus = await axios.get(
+        baseUrl + "/are-posts-analyzed",
+        { withCredentials: true }
+      );
+
+      if (postAnalysisStatus.data.success && postAnalysisStatus.data.profile_added) {
+        // ✅ user already added topics, skip to analysis page
+        navigate("/analyze/my_style");
+      }
+
+    } catch (err) {
+      toast.error("Failed to load data.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  init();
+}, [navigate]);
+
 
 const handleCategoryChange = async (event) => {
   const newSelected = event.target.value;
@@ -131,10 +144,9 @@ const handleTopicSave = async () => {
           { withCredentials: true }
         );
 
-        if (postAnalysisStatus.data.success && postAnalysisStatus.data.added) {
-            navigate("/professional/dashboard");
-          } else {
+        if (postAnalysisStatus.data.success && postAnalysisStatus.data.profile_added) {
             navigate("/analyze/my_style");
+          } else {
           }
         } else {
           // Fallback if post analysis check fails
@@ -159,7 +171,7 @@ const handleTopicSave = async () => {
   return (
     <Box>
       {/* Header */}
-       <Box display="flex" justifyContent="space-between" alignItems="center" px={4} py={2} mt={4}>
+      <Box display="flex" justifyContent="space-between" alignItems="center" px={4} py={2} mt={4}>
    <header
   style={{
     position: "fixed",

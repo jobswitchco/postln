@@ -105,6 +105,9 @@ export const definePublishJob = (agenda) => {
       post.updated_at = new Date();
       await post.save();
 
+        await ScheduledPosts.findByIdAndDelete(postId);
+
+
       done();
 
     }

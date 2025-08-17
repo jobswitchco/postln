@@ -658,31 +658,39 @@ router.post("/send_linkedin_code", async (req, res) => {
 });
 
 
-router.get("/verify-login-token", authenticateToken, async (req, res) => {
+
+router.get("/verify-login-token", authenticateToken, (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({ valid: false });
+  }
   return res.status(200).json({ valid: true, user: req.user });
+  
 });
 
 
-router.post('/are-topics-added', authenticateToken, async function (req, res) {
-
- const user_id = req.user?.user_id;
+router.post('/are-topics-added', authenticateToken, async (req, res) => {
+  const user_id = req.user?.user_id;
 
   if (!user_id) {
-    return res.status(400).json({ message: "Username is invalid." });
+    return res.status(400).json({ success: false, message: "Invalid user." });
   }
 
   try {
-    const result = await USER.findById(user_id);
+    const user = await USER.findById(user_id).lean();
 
-   if (result) {
-  return res.status(200).send({ success: true, added: result.profile_added === true, analysisAdded: result.posts_analyzed === true});
-} else {
-  return res.status(404).send({ success: false, message: "User not found" });
-}
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found." });
+    }
+
+    return res.status(200).json({
+      success: true,
+      added: user.profile_added,
+      model_trained : user.model_training_finished
+    });
 
   } catch (error) {
     console.error("❌ Error fetching user details:", error);
-    return res.status(500).json({ error: "Internal Server Error" });
+    return res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 });
 
@@ -695,6 +703,7 @@ router.get('/are-posts-analyzed', authenticateToken, async (req, res) => {
 
     const modelStarted = user.model_training_started;
     const modelReady = user.model_training_finished;
+    const profileAdded = user.profile_added;
 
     let minutesLeft = null;
     let freeTrialStartedDate = user.free_trial_started_date
@@ -723,6 +732,7 @@ router.get('/are-posts-analyzed', authenticateToken, async (req, res) => {
       model_ready: modelReady,
       minutes_left: minutesLeft,
       free_trial_started_date: freeTrialStartedDate,
+      profile_added: profileAdded
     });
   } catch (err) {
     console.error(err);

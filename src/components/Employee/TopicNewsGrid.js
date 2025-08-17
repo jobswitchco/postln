@@ -21,6 +21,7 @@ import {
   MenuItem,
   useMediaQuery,
   useTheme,
+  CircularProgress
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import GenerateWithAI from "./GenerateWithAI";
@@ -31,6 +32,8 @@ import axios from "axios";
 import countries from "i18n-iso-countries";
 import enLocale from "i18n-iso-countries/langs/en.json";
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
+import "react-toastify/dist/ReactToastify.css";
+import { toast } from "react-toastify";
 
 countries.registerLocale(enLocale);
 
@@ -44,6 +47,7 @@ const truncate = (text, limit = 220) =>
 export default function TopicNewsGrid() {
   const [openDialog, setOpenDialog] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [saveTopicsLoading, setSaveTopicsLoading] = useState(false);
   const [loadingArticle, setLoadingArticle] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [activeArticle, setActiveArticle] = useState(null);
@@ -320,8 +324,9 @@ wsRef.current = ws;
       }
     }, [selectedTopic, selectedRegion]);
   
-    const saveUserTopics = async () => {
+   const saveUserTopics = async () => {
       try {
+        setSaveTopicsLoading(true);
         const response = await axios.post(
           baseUrl + "/update-topics-of-user",
           { selectedTopics },
@@ -329,6 +334,8 @@ wsRef.current = ws;
         );
   
         if (response.data.updated) {
+          setSaveTopicsLoading(false);
+          toast.success('Topics Updated');
           setSelectedTopics(response.data.topics);
           setShowTopicDialog(false);
           fetchUserTopics();
@@ -677,14 +684,38 @@ wsRef.current = ws;
 </Button>
         </Box>
       </Box>
-
-         <Dialog
+   <Dialog
                 open={showTopicDialog}
                 onClose={() => setShowTopicDialog(false)}
                 maxWidth="md"
                 fullWidth
               >
-                <DialogTitle>
+
+            {saveTopicsLoading ? (
+                        <Box
+                          sx={{
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            mt: 1,
+                            my: 4
+                          }}
+                        >
+                          <CircularProgress
+                            size={24}
+                            sx={{
+                              mb: 1, // space between loader & text
+                            }}
+                          />
+                          <Typography variant="body2" color="textSecondary">
+                            Updating Topics...
+                          </Typography>
+                        </Box>
+                      ) : (
+
+                            <>
+                              <DialogTitle>
                   Add or Deselect topics
                   <IconButton
                     onClick={() => setShowTopicDialog(false)}
@@ -765,6 +796,12 @@ wsRef.current = ws;
                     <Typography>Save Topics</Typography>
                   </Box>
                 </DialogActions>
+                            </>
+                          )
+                        }
+              
+
+
               </Dialog>
       
               {/* Dialog */}

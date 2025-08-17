@@ -49,21 +49,21 @@ const DashboardOverview = () => {
                     const verifyToken = async () => {
                       setLoading(true);
                     
-                      try {
-                        const res = await axios.get(`${baseUrl}/verify-login-token`, { withCredentials: true });
+                                         try {
+  const res = await axios.get(`${baseUrl}/verify-login-token`, { withCredentials: true });
 
-                        if (res.data.valid) {
-                          // await fetchData();
-                        } else {
-                          handleSessionExpired();
-                        }
-                      } catch (error) {
-                        if (error.response && (error.response.status === 401 || error.response.status === 403)) {
-                          handleSessionExpired();
-                        } else {
-                          toast.error("Network error, please try again later.");
-                        }
-                      } finally {
+  if (res.data.valid) {
+    // token ok
+  } else {
+    handleSessionExpired();
+  }
+} catch (error) {
+  if (error.response?.status === 401 || error.response?.status === 403) {
+    handleSessionExpired();
+  } else {
+    toast.error("Network error, please try again later.");
+  }
+}finally {
                         setLoading(false);
                       }
                     };

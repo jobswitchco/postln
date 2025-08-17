@@ -16,7 +16,8 @@ import {
   DialogContent,
   Button,
   useMediaQuery,
-  useTheme
+  useTheme,
+  Skeleton
 } from "@mui/material";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import {
@@ -42,7 +43,7 @@ import "react-toastify/dist/ReactToastify.css";
 const MyPosts = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-
+  const [loading, setLoading] = useState(false);
   const [tabIndex, setTabIndex] = useState(0);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [calendarDialogOpen, setCalendarDialogOpen] = useState(false);
@@ -131,6 +132,8 @@ const MyPosts = () => {
   };
 
   const fetchPosts = async (dateToFetch) => {
+
+    setLoading(true);
     const localStart = new Date(dateToFetch);
     localStart.setHours(0, 0, 0, 0);
     const localEnd = new Date(dateToFetch);
@@ -142,6 +145,8 @@ const MyPosts = () => {
         { withCredentials: true }
       );
       setPostsByType(res.data);
+    setLoading(false);
+
     } catch (err) {
       console.error("Failed to fetch posts:", err);
     }
@@ -430,7 +435,29 @@ const MyPosts = () => {
             </Box>
 
             <Box sx={{ maxHeight: "calc(100vh - 140px)", overflowY: "auto", pb: 2 }}>
+              {loading ? (
+
+                        <>
+                        <Skeleton variant="text" width="20%" height={16} />
+                                    <Skeleton variant="text" width="100%" height={20} sx={{ mt: 1 }} />
+                                    <Skeleton variant="text" width="80%" height={20} />
+                                    <Skeleton variant="text" width="100%" height={20} sx={{ mt: 2 }} />
+                                    <Skeleton variant="text" width="90%" height={20} />
+                                    <Skeleton variant="text" width="70%" height={20} />
+                                    <Skeleton variant="text" width="100%" height={20} />
+                                    <Skeleton variant="text" width="60%" height={20} />
+                                    <Skeleton variant="text" width="90%" height={20} sx={{ mt: 2 }} />
+                                    <Skeleton variant="text" width="100%" height={20} />
+                                    <Skeleton variant="text" width="100%" height={20} />
+                                    <Skeleton variant="text" width="75%" height={20} />
+                                    <Skeleton variant="text" width="80%" height={20} />
+                                    <Skeleton variant="text" width="30%" height={20} />
+                                    </>
+
+                      ) : (<>
+                      
               {renderPosts()}
+              </> )}
             </Box>
           </Grid>
         </Grid>

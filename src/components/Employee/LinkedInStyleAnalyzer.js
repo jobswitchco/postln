@@ -9,7 +9,7 @@ import {
   Skeleton,
   Card,
   CardContent,
-  Stack,
+  CircularProgress,
   useMediaQuery,
   useTheme
 } from "@mui/material";
@@ -21,17 +21,17 @@ const LinkedInStyleAnalyzer = () => {
   const [linkedinUrl, setLinkedinUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [toastOpen, setToastOpen] = useState(false);
-  // const baseUrl = "http://localhost:8001/usersOn";
       const baseUrl="/api/usersOn";
- const [urlError, setUrlError] = useState("");
   const navigate = useNavigate();
   const [showLoadingAnimation, setShowLoadingAnimation] = useState(false);
  const [minutesLeft, setMinutesLeft] = useState(null);
-
+ const [urlError, setUrlError] = useState("");
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
 useEffect(() => {
+  setLoading(true);
+
   const fetchData = async () => {
     try {
       const res = await axios.get(baseUrl + "/are-posts-analyzed", {
@@ -41,13 +41,16 @@ useEffect(() => {
       if (res.data.success && res.data.model_ready) {
         navigate("/professional/dashboard");
       } else if (res.data.success && res.data.model_started) {
+        setLoading(false);
         setShowLoadingAnimation(true);
-        setMinutesLeft(res.data.minutes_left); // ← ✅ set time left
+        setMinutesLeft(res.data.minutes_left);
       } else {
         setShowLoadingAnimation(false);
       }
     } catch (error) {
       toast.error("Something went wrong.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -58,7 +61,8 @@ useEffect(() => {
 
   return () => clearInterval(interval);
 }, []);
- 
+
+
 
 const handleAnalyze = async () => {
   // Reset previous error
@@ -70,7 +74,7 @@ const handleAnalyze = async () => {
     return;
   }
 
-  setLoading(true);
+  setShowLoadingAnimation(true);
   try {
     const res = await axios.post(baseUrl + "/analyze-writing-style", {
       linkedinUrl,
@@ -88,6 +92,7 @@ const handleAnalyze = async () => {
     setLoading(false);
   }
 };
+
 
   const SkeletonCard = () => (
     <Card
@@ -112,7 +117,20 @@ const handleAnalyze = async () => {
   );
 
   return (
-    <Box sx={{ px: isMobile ? 2 : 4, py: 4 }}>
+    <>
+   {loading ? (
+             <CircularProgress
+               size={24}
+               style={{
+                 position: "absolute",
+                 top: "50%",
+                 left: "50%",
+                 marginTop: -12, // Center the CircularProgress
+                 marginLeft: -12, // Center the CircularProgress
+               }}
+             />
+           ) : (
+             <Box sx={{ px: isMobile ? 2 : 4, py: 4 }}>
       <Typography
         sx={{
           maxWidth: 800,
@@ -124,9 +142,10 @@ const handleAnalyze = async () => {
           color: "text.secondary",
         }}
       >
-        Crafting your LinkedIn co-pilot ☕
+ Crafting your LinkedIn co-pilot ☕
 We analyze your posts to learn your writing style. 
 This takes up to <strong>30 minutes</strong>. Sit back, relax, and we'll notify you when it's ready!
+
 
        </Typography>
 
@@ -224,17 +243,18 @@ This takes up to <strong>30 minutes</strong>. Sit back, relax, and we'll notify 
           <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
             Enter your LinkedIn profile link to analyze your writing style using AI.
           </Typography>
+
         <TextField
-          label="LinkedIn Profile URL"
-          placeholder="e.g. https://www.linkedin.com/in/bhaskarsriram"
-          fullWidth
-          variant="outlined"
-          value={linkedinUrl}
-          onChange={(e) => setLinkedinUrl(e.target.value)}
-          error={!!urlError} // highlights the input in red
-          helperText={urlError} // shows the error message
-          sx={{ mb: 2 }}
-        />
+  label="LinkedIn Profile URL"
+  placeholder="e.g. https://www.linkedin.com/in/bhaskarsriram"
+  fullWidth
+  variant="outlined"
+  value={linkedinUrl}
+  onChange={(e) => setLinkedinUrl(e.target.value)}
+  error={!!urlError} // highlights the input in red
+  helperText={urlError} // shows the error message
+  sx={{ mb: 2 }}
+/>
 
 
           <Button
@@ -279,7 +299,10 @@ This takes up to <strong>30 minutes</strong>. Sit back, relax, and we'll notify 
         `}
       </style>
     </Box>
+
+           )}
+   </>
   );
-};
+}
 
 export default LinkedInStyleAnalyzer;
