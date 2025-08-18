@@ -55,7 +55,7 @@ function App() {
               <Route path="/auth/linkedin/callback" element={<LinkedInCode/>}/>
               <Route path="/professional/login" element={<LinkedInUserLogin />} />
               <Route path="/select/category" element={<CategorySelector />} />
-                <Route path="/analyze/my_style" element={<LinkedInStyleAnalyzer />} />
+              <Route path="/analyze/my_style" element={<LinkedInStyleAnalyzer />} />
               <Route path="/forgotPassword" element={<ForgotPassword />} />
               <Route path="/pricing" element={<PricingPage />} />
               <Route path="/terms" element={<Terms />} />

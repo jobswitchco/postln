@@ -232,70 +232,223 @@ const VALID_COUNTRIES = new Set([
   "ua","gb","us"
 ]);
 
+// async function fetchGNewsArticles(
+//   query,
+//   country = "in",
+//   max = 9,
+//   page = 1,
+//   existingTitles = [],
+//   alreadyFetchedDays = new Set() // optional in-memory cache
+// ) {
+//   const API_KEY = process.env.GSNEWS_API_KEY;
+
+//   const lang = "en";
+
+//   const neededCount = max;
+
+//   async function fetchFromRange(fromDate, toDate) {
+//     let url = `https://gnews.io/api/v4/search` +
+//               `?q=${encodeURIComponent(query)}` +
+//               `&lang=${lang}` +
+//               `&from=${encodeURIComponent(fromDate)}` +
+//               `&to=${encodeURIComponent(toDate)}` +
+//               `&max=100` +
+//               `&sortby=publishedAt` +
+//               `&expand=content` +
+//               `&apikey=${API_KEY}`;
+
+//     const cLower = country?.toLowerCase();
+
+//     // Only add country if it's valid and not 'global'
+//     if (cLower && cLower !== "global" && VALID_COUNTRIES.has(cLower)) {
+//       url += `&country=${cLower}`;
+//     }
+
+//     const response = await fetch(url);
+//     if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+//     const data = await response.json();
+//     return data.articles || [];
+//   }
+
+//   try {
+//     let allArticles = [];
+//     const seen = new Set();
+
+//     // Start from 2 days ago
+//     let datePointer = new Date();
+//     datePointer.setDate(datePointer.getDate() - 2);
+
+//     while (allArticles.length < neededCount) {
+//       // Build a 3-day range
+//       const toDate = new Date(datePointer);
+//       const fromDate = new Date(datePointer);
+//       fromDate.setDate(fromDate.getDate() - 6);
+
+//       const fromISO = fromDate.toISOString();
+//       const toISO = toDate.toISOString();
+
+//       // Skip already fetched ranges
+//       const cacheKey = `${fromISO}_${toISO}_${query}_${country}`;
+//       if (alreadyFetchedDays.has(cacheKey)) {
+//         datePointer.setDate(datePointer.getDate() - 3);
+//         continue;
+//       }
+
+//       const articles = await fetchFromRange(fromISO, toISO);
+//       alreadyFetchedDays.add(cacheKey);
+
+//       for (const a of articles) {
+//         if (!a.title) continue;
+//         const titleTrimmed = a.title.trim();
+//         if (existingTitles.includes(titleTrimmed)) continue;
+//         if (seen.has(titleTrimmed)) continue;
+//         seen.add(titleTrimmed);
+
+//         allArticles.push({
+//           title: a.title,
+//           summary: a.content || "",
+//           url: a.url || "",
+//           publishedAt: a.publishedAt || null,
+//           image: a.image || "",
+//         });
+
+//         if (allArticles.length >= neededCount) break;
+//       }
+
+//       // Move back by 3 days
+//       datePointer.setDate(datePointer.getDate() - 3);
+
+//       // Safety stop: avoid going back more than 90 days
+//       if ((new Date() - datePointer) / (1000 * 60 * 60 * 24) > 90) break;
+//     }
+
+//     // Sort ascending by published date
+//     allArticles.sort(
+//       (a, b) => new Date(a.publishedAt) - new Date(b.publishedAt)
+//     );
+
+//     return allArticles.slice(0, neededCount);
+//   } catch (error) {
+//     console.error("Error fetching articles:", error);
+//     return [];
+//   }
+// }
+
 async function fetchGNewsArticles(
   query,
   country = "in",
   max = 9,
   page = 1,
   existingTitles = [],
-  alreadyFetchedDays = new Set() // optional in-memory cache
+  alreadyFetchedDays = new Set(), // optional in-memory cache
+  onArticle // optional callback for streaming to WS
 ) {
   const API_KEY = process.env.GSNEWS_API_KEY;
 
   const lang = "en";
-
   const neededCount = max;
 
+  function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
   async function fetchFromRange(fromDate, toDate) {
-    let url = `https://gnews.io/api/v4/search` +
-              `?q=${encodeURIComponent(query)}` +
-              `&lang=${lang}` +
-              `&from=${encodeURIComponent(fromDate)}` +
-              `&to=${encodeURIComponent(toDate)}` +
-              `&max=100` +
-              `&sortby=publishedAt` +
-              `&expand=content` +
-              `&apikey=${API_KEY}`;
+    let url =
+      `https://gnews.io/api/v4/search` +
+      `?q=${encodeURIComponent(query)}` +
+      `&lang=${lang}` +
+      `&from=${encodeURIComponent(fromDate)}` +
+      `&to=${encodeURIComponent(toDate)}` +
+      `&max=100` +
+      `&sortby=publishedAt` +
+      `&expand=content` +
+      `&apikey=${API_KEY}`;
 
     const cLower = country?.toLowerCase();
-
-    // Only add country if it's valid and not 'global'
     if (cLower && cLower !== "global" && VALID_COUNTRIES.has(cLower)) {
       url += `&country=${cLower}`;
     }
 
     const response = await fetch(url);
-    if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-    const data = await response.json();
+
+    let data;
+    try {
+      data = await response.json();
+    } catch {
+      throw new Error(`Invalid JSON from GNews (status: ${response.status})`);
+    }
+
+    if (response.status === 429 && (!data || !data.articles?.length)) {
+      return []; // treat as empty, not a hard failure
+    }
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
+    }
+
     return data.articles || [];
+  }
+
+  async function fetchWithRetry(fromDate, toDate, retries = 3, delay = 2000) {
+    try {
+      return await fetchFromRange(fromDate, toDate);
+    } catch (err) {
+      console.error("Fetch error caught:", err.message);
+
+      if ((err.message.includes("429") || /Status:\s*429/.test(err.message)) && retries > 0) {
+        console.warn(
+          `Rate limit hit. Retrying in ${delay / 1000}s... (retries left: ${retries - 1})`
+        );
+        await sleep(delay);
+        return await fetchWithRetry(fromDate, toDate, retries - 1, delay * 2);
+      }
+
+      throw err;
+    }
   }
 
   try {
     let allArticles = [];
     const seen = new Set();
 
-    // Start from 2 days ago
     let datePointer = new Date();
-    datePointer.setDate(datePointer.getDate() - 2);
+    datePointer.setDate(datePointer.getDate());
 
     while (allArticles.length < neededCount) {
-      // Build a 3-day range
       const toDate = new Date(datePointer);
       const fromDate = new Date(datePointer);
-      fromDate.setDate(fromDate.getDate() - 6);
+      fromDate.setDate(fromDate.getDate() - 10);
 
       const fromISO = fromDate.toISOString();
       const toISO = toDate.toISOString();
 
-      // Skip already fetched ranges
       const cacheKey = `${fromISO}_${toISO}_${query}_${country}`;
       if (alreadyFetchedDays.has(cacheKey)) {
         datePointer.setDate(datePointer.getDate() - 3);
         continue;
       }
 
-      const articles = await fetchFromRange(fromISO, toISO);
+      const articles = await fetchWithRetry(fromISO, toISO);
       alreadyFetchedDays.add(cacheKey);
+
+      if (!articles.length) {
+        console.warn(`⚠️ No GNews results for "${query}". Falling back to Perplexity...`);
+
+        // fallback loop: fetch 1 article at a time from Perplexity until we have enough
+        while (allArticles.length < neededCount) {
+          const perplexityArticle = await fetchFromPerplexity(query, country, [
+            ...existingTitles,
+            ...allArticles.map(a => a.title)
+          ]);
+
+          if (!perplexityArticle) break;
+
+          allArticles.push(perplexityArticle);
+          if (onArticle) onArticle(perplexityArticle); // stream to WS
+        }
+
+        return allArticles;
+      }
 
       for (const a of articles) {
         if (!a.title) continue;
@@ -304,33 +457,42 @@ async function fetchGNewsArticles(
         if (seen.has(titleTrimmed)) continue;
         seen.add(titleTrimmed);
 
-        allArticles.push({
+        const article = {
           title: a.title,
           summary: a.content || "",
           url: a.url || "",
           publishedAt: a.publishedAt || null,
           image: a.image || "",
-        });
+        };
+
+        allArticles.push(article);
+        if (onArticle) onArticle(article); // stream to WS
 
         if (allArticles.length >= neededCount) break;
       }
 
-      // Move back by 3 days
       datePointer.setDate(datePointer.getDate() - 3);
 
-      // Safety stop: avoid going back more than 90 days
       if ((new Date() - datePointer) / (1000 * 60 * 60 * 24) > 90) break;
     }
 
-    // Sort ascending by published date
-    allArticles.sort(
-      (a, b) => new Date(a.publishedAt) - new Date(b.publishedAt)
-    );
-
+    allArticles.sort((a, b) => new Date(a.publishedAt) - new Date(b.publishedAt));
     return allArticles.slice(0, neededCount);
   } catch (error) {
     console.error("Error fetching articles:", error);
-    return [];
+
+    // Final fallback: Perplexity loop
+    const allArticles = [];
+    while (allArticles.length < neededCount) {
+      const perplexityArticle = await fetchFromPerplexity(query, country, [
+        ...existingTitles,
+        ...allArticles.map(a => a.title)
+      ]);
+      if (!perplexityArticle) break;
+      allArticles.push(perplexityArticle);
+      if (onArticle) onArticle(perplexityArticle);
+    }
+    return allArticles;
   }
 }
 
@@ -1050,29 +1212,55 @@ router.post('/transcribe-whisper', async (req, res) => {
 
 
 router.post('/rewrite-post', authenticateToken, async (req, res) => {
- 
   const user_id = req.user?.user_id;
-
   const { textPost } = req.body;
 
-  const postText = await sanitizeInput(textPost);
-
   try {
-     
-    const { fine_tuned_model } = await USER.findById(user_id).lean().select('fine_tuned_model');
+    // fetch user and credits
+    const user = await USER.findById(user_id).select('fine_tuned_model credits_left');
 
-    const generatedPostLn = await generateLinkedInPost(postText, fine_tuned_model)
-  .then((post, rating) => {
-    return post;
-  })
-  .catch(console.error);
+    if (!user) {
+      return res.status(200).json({
+        generated: false,
+        error: 'User not found',
+      });
+    }
 
-    res.json({
+    // check if user has enough credits
+    if (!user.credits_left || user.credits_left <= 0) {
+      return res.status(200).json({
+        generated: false,
+        error: 'Insufficient credits',
+      });
+    }
+
+    // sanitize and generate rewritten post
+    const postText = await sanitizeInput(textPost);
+    const generatedPostLn = await generateLinkedInPost(postText, user.fine_tuned_model)
+      .then((post) => post)
+      .catch((err) => {
+        console.error('Generate error:', err);
+        throw new Error('Post generation failed');
+      });
+
+    // decrement credits by 1 ONLY after successful generation
+    const updatedUser = await USER.findByIdAndUpdate(
+      user_id,
+      { $inc: { credits_left: -1 } },
+      { new: true } // return updated user
+    ).select('credits_left');
+
+    return res.status(200).json({
+      generated: true,
       rewrittenText: generatedPostLn,
+      credits_left: updatedUser.credits_left,
     });
   } catch (error) {
     console.error('Rewrite error:', error);
-    res.status(500).json({ error: 'Failed to rewrite post' });
+    return res.status(200).json({
+      generated: false,
+      error: 'Failed to rewrite post',
+    });
   }
 });
 

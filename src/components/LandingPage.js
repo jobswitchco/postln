@@ -26,7 +26,7 @@ export default function LandingPage() {
           content="AI LinkedIn post generator for professionals. Write, rewrite, and schedule engaging LinkedIn content tailored to your tone and audience."
         />
         <meta property="og:type" content="website" />
-        <link rel="canonical" href="https://www.postln.com" />
+         <link rel="canonical" href={`https://www.postln.com${window.location.pathname}`} />
         <meta name="google-site-verification" content="CETKVAossRw6jCWRL_s8eGjPEM6CCx10zTFjEL2_IH8" />
       </Helmet>
 

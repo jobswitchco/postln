@@ -7,6 +7,7 @@ import {
   Typography,
   CircularProgress ,
   Box,
+  useMediaQuery
 } from "@mui/material";
 import axios from "axios";
 
@@ -29,8 +30,9 @@ const GenerateWithAI = ({ open, postText, onClose, onRewriteComplete }) => {
   const [tone, setTone] = useState("professional");
   // const baseUrl = "http://localhost:8001/usersOn";
       const baseUrl="/api/usersOn";
-
+  const isMobile = useMediaQuery('(max-width:600px)');
   const [isLoading, setIsLoading] = useState(false);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
 
 
 
@@ -38,35 +40,46 @@ const GenerateWithAI = ({ open, postText, onClose, onRewriteComplete }) => {
     setOptions((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-const handleRewritePost = async (postText) => {
-  setIsLoading(true); // Start loading
-  try {
-    const response = await axios.post(`${baseUrl}/rewrite-post`, {
-      textPost: postText,
-      // enhancements: options,
-    }, {withCredentials : true});
+ const handleRewritePost = async (postText) => {
+    setIsLoading(true);
+    try {
+      const response = await axios.post(
+        `${baseUrl}/rewrite-post`,
+        { textPost: postText },
+        { withCredentials: true }
+      );
 
-    const rewritten = response?.data?.rewrittenText.post;
-    console.log('rewritten : ', rewritten);
+      const { generated, rewrittenText, error } = response.data;
 
+      if (!generated) {
+        // 🔴 Insufficient credits → open upgrade dialog
+        if (error === "Insufficient credits") {
+          setUpgradeOpen(true);
+        } else {
+          console.error(error || "Rewrite failed");
+        }
+        return;
+      }
 
-    if (rewritten) {
-      onRewriteComplete(rewritten);  // ✅ Send to parent
-      onClose();             // ✅ Close dialog
-    } else {
-      console.error("No rewritten text received.");
+      // ✅ Post successfully generated
+      if (rewrittenText) {
+        onRewriteComplete(rewrittenText.post || rewrittenText);
+        onClose();
+      } else {
+        console.error("No rewritten text received.");
+      }
+    } catch (err) {
+      console.error("Rewrite failed:", err);
+    } finally {
+      setIsLoading(false);
     }
-  } catch (err) {
-    console.error("Rewrite failed:", err);
-  } finally {
-    setIsLoading(false); // Stop loading
-  }
-};
+  };
 
 
 
 
   return (
+    <>
   <Dialog
   open={open}
   onClose={(event, reason) => {
@@ -287,6 +300,60 @@ const handleRewritePost = async (postText) => {
 
 
     </Dialog>
+
+      <Dialog
+  open={upgradeOpen}
+  onClose={() => setUpgradeOpen(false)}
+  fullWidth
+  maxWidth="xs"
+>
+  <DialogTitle sx={{ fontWeight: 500, fontSize: isMobile ? "18px" : "20px" }}>
+    🚀 Upgrade Required
+  </DialogTitle>
+
+  <DialogContent>
+    <Typography sx={{ fontSize: "15px", color: "#555", mb: 2 }}>
+      You've run out of credits.<br/> 
+      Upgrade your plan to continue rewriting posts with AI.
+    </Typography>
+  </DialogContent>
+
+  <DialogActions sx={{ justifyContent: "flex-end", px: 3, py: 2 }}>
+    <Box
+      onClick={() => setUpgradeOpen(false)}
+      sx={{
+        background: '#D7D7D7',
+        borderRadius: '26px',
+        px: 2,
+        py: 0.7,
+        cursor: 'pointer',
+        '&:hover': { background: '#748873', color: '#FFFFFF' },
+      }}
+    >
+      <Typography>Back</Typography>
+    </Box>
+
+    <Box
+      onClick={() => {
+        setUpgradeOpen(false);
+        window.location.href = "/pricing"; // redirect to pricing page
+      }}
+      sx={{
+        background: '#FE7743',
+        borderRadius: '26px',
+        px: 3,
+        py: 0.7,
+        color: '#FFFFFF',
+        cursor: 'pointer',
+        '&:hover': { background: '#004030', color: '#FFFFFF' },
+      }}
+    >
+      <Typography>Upgrade Plan</Typography>
+    </Box>
+  </DialogActions>
+</Dialog>
+
+</>
   );
 };
 
