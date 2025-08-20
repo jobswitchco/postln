@@ -800,6 +800,14 @@ router.post("/send_linkedin_code", async (req, res) => {
       sameSite: "Lax",
     });
 
+    res.cookie("token_professional", token, {
+  httpOnly: true,
+  secure: true,
+  sameSite: "Lax",
+  maxAge: 7 * 24 * 60 * 60 * 1000,
+});
+
+
     return res.status(200).json({
       success: true,
       message: wasNew ? "User registered successfully" : "User logged in successfully",

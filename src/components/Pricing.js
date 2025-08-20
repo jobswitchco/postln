@@ -35,8 +35,8 @@ function Pricing() {
     <>
         <header>
         <title>Pricing and Packages | PostLn</title>
+        <meta name="description" content="Checkout the prices and rates for Linkedin Professionals." />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" href="/favicon.ico" />
         <script async src="https://www.googletagmanager.com/gtag/js?id=G-FR7630J1YJ"></script>
 
       </header>
