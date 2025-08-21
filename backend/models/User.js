@@ -27,6 +27,7 @@ const User_Schema = new Schema({
 
        credits_left: {
     type: Number,
+    default: 50
   },
 
     account_delete_code: {type : Number},
