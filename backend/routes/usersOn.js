@@ -334,6 +334,8 @@ const VALID_COUNTRIES = new Set([
 //   }
 // }
 
+
+
 async function fetchGNewsArticles(
   query,
   country = "in",
@@ -344,12 +346,19 @@ async function fetchGNewsArticles(
   onArticle // optional callback for streaming to WS
 ) {
   const API_KEY = process.env.GSNEWS_API_KEY;
-
   const lang = "en";
   const neededCount = max;
 
   function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  function buildCountryParam() {
+    const cLower = String(country || "").toLowerCase();
+    if (cLower && cLower !== "global" && VALID_COUNTRIES.has(cLower)) {
+      return `&country=${cLower}`;
+    }
+    return "";
   }
 
   async function fetchFromRange(fromDate, toDate) {
@@ -362,12 +371,8 @@ async function fetchGNewsArticles(
       `&max=100` +
       `&sortby=publishedAt` +
       `&expand=content` +
-      `&apikey=${API_KEY}`;
-
-    const cLower = country?.toLowerCase();
-    if (cLower && cLower !== "global" && VALID_COUNTRIES.has(cLower)) {
-      url += `&country=${cLower}`;
-    }
+      `&apikey=${API_KEY}` +
+      buildCountryParam();
 
     const response = await fetch(url);
 
@@ -389,21 +394,84 @@ async function fetchGNewsArticles(
     return data.articles || [];
   }
 
-  async function fetchWithRetry(fromDate, toDate, retries = 3, delay = 2000) {
+  // ✅ NEW: fetch without from/to
+  async function fetchNoRange() {
+    let url =
+      `https://gnews.io/api/v4/search` +
+      `?q=${encodeURIComponent(query)}` +
+      `&lang=${lang}` +
+      `&max=100` +
+      `&sortby=publishedAt` +
+      `&expand=content` +
+      `&apikey=${API_KEY}` +
+      buildCountryParam();
+
+    const response = await fetch(url);
+
+    let data;
     try {
-      return await fetchFromRange(fromDate, toDate);
-    } catch (err) {
-      console.error("Fetch error caught:", err.message);
+      data = await response.json();
+    } catch {
+      throw new Error(`Invalid JSON from GNews (status: ${response.status})`);
+    }
 
-      if ((err.message.includes("429") || /Status:\s*429/.test(err.message)) && retries > 0) {
-        console.warn(
-          `Rate limit hit. Retrying in ${delay / 1000}s... (retries left: ${retries - 1})`
-        );
-        await sleep(delay);
-        return await fetchWithRetry(fromDate, toDate, retries - 1, delay * 2);
+    if (response.status === 429 && (!data || !data.articles?.length)) {
+      return []; // treat as empty
+    }
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
+    }
+
+    return data.articles || [];
+  }
+
+  async function fetchWithRetry(fn, ...args) {
+    // fn is either fetchFromRange or fetchNoRange
+    const maxRetries = 3;
+    let delay = 2000;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await fn(...args);
+      } catch (err) {
+        const msg = String(err?.message || "");
+        const is429 = msg.includes("429") || /Status:\s*429/.test(msg);
+        if (is429 && attempt < maxRetries) {
+          console.warn(
+            `Rate limit hit. Retrying in ${delay / 1000}s... (retries left: ${
+              maxRetries - attempt
+            })`
+          );
+          await sleep(delay);
+          delay *= 2;
+          continue;
+        }
+        throw err;
       }
+    }
+  }
 
-      throw err;
+  // small helper to process and push articles with de-dupe + streaming
+  function pushArticlesInto(allArticles, seen, list) {
+    for (const a of list) {
+      if (!a?.title) continue;
+      const titleTrimmed = a.title.trim();
+      if (existingTitles.includes(titleTrimmed)) continue;
+      if (seen.has(titleTrimmed)) continue;
+      seen.add(titleTrimmed);
+
+      const article = {
+        title: a.title,
+        summary: a.content || "",
+        url: a.url || "",
+        publishedAt: a.publishedAt || null,
+        image: a.image || "",
+      };
+
+      allArticles.push(article);
+      if (onArticle) onArticle(article);
+
+      if (allArticles.length >= neededCount) break;
     }
   }
 
@@ -411,6 +479,7 @@ async function fetchGNewsArticles(
     let allArticles = [];
     const seen = new Set();
 
+    // walk back in time in 10-day slices
     let datePointer = new Date();
     datePointer.setDate(datePointer.getDate());
 
@@ -428,73 +497,87 @@ async function fetchGNewsArticles(
         continue;
       }
 
-      const articles = await fetchWithRetry(fromISO, toISO);
+      // 1) Try with range
+      const ranged = await fetchWithRetry(fetchFromRange, fromISO, toISO);
       alreadyFetchedDays.add(cacheKey);
 
-      if (!articles.length) {
-        console.warn(`⚠️ No GNews results for "${query}". Falling back to Perplexity...`);
+      if (ranged.length > 0) {
+        pushArticlesInto(allArticles, seen, ranged);
+      } else {
+        // 2) If empty -> try without range
+        const anyRange = await fetchWithRetry(fetchNoRange);
+        if (anyRange.length > 0) {
+          pushArticlesInto(allArticles, seen, anyRange);
+        } else {
+          // 3) Still empty -> Perplexity fallback (stream until enough)
+          console.warn(
+            `⚠️ No GNews results (with or without dates) for "${query}". Falling back to Perplexity...`
+          );
 
-        // fallback loop: fetch 1 article at a time from Perplexity until we have enough
-        while (allArticles.length < neededCount) {
-          const perplexityArticle = await fetchFromPerplexity(query, country, [
-            ...existingTitles,
-            ...allArticles.map(a => a.title)
-          ]);
+          while (allArticles.length < neededCount) {
+            const perplexityArticle = await fetchFromPerplexity(query, country, [
+              ...existingTitles,
+              ...allArticles.map((a) => a.title),
+            ]);
+            if (!perplexityArticle) break;
 
-          if (!perplexityArticle) break;
+            const titleTrimmed = perplexityArticle.title?.trim();
+            if (titleTrimmed && !seen.has(titleTrimmed)) {
+              seen.add(titleTrimmed);
+              allArticles.push(perplexityArticle);
+              if (onArticle) onArticle(perplexityArticle);
+            }
+          }
 
-          allArticles.push(perplexityArticle);
-          if (onArticle) onArticle(perplexityArticle); // stream to WS
+          // if we had to fallback now, we're done
+          allArticles.sort(
+            (a, b) => new Date(a.publishedAt) - new Date(b.publishedAt)
+          );
+          return allArticles.slice(0, neededCount);
         }
-
-        return allArticles;
       }
 
-      for (const a of articles) {
-        if (!a.title) continue;
-        const titleTrimmed = a.title.trim();
-        if (existingTitles.includes(titleTrimmed)) continue;
-        if (seen.has(titleTrimmed)) continue;
-        seen.add(titleTrimmed);
+      // stop if we have enough
+      if (allArticles.length >= neededCount) break;
 
-        const article = {
-          title: a.title,
-          summary: a.content || "",
-          url: a.url || "",
-          publishedAt: a.publishedAt || null,
-          image: a.image || "",
-        };
-
-        allArticles.push(article);
-        if (onArticle) onArticle(article); // stream to WS
-
-        if (allArticles.length >= neededCount) break;
-      }
-
+      // otherwise step back 3 days and continue
       datePointer.setDate(datePointer.getDate() - 3);
 
-      if ((new Date() - datePointer) / (1000 * 60 * 60 * 24) > 90) break;
+      // safety: don't go older than ~90 days
+      if ((Date.now() - datePointer.getTime()) / (1000 * 60 * 60 * 24) > 90) {
+        break;
+      }
     }
 
-    allArticles.sort((a, b) => new Date(a.publishedAt) - new Date(b.publishedAt));
+    // Final trim/sort
+    allArticles.sort(
+      (a, b) => new Date(a.publishedAt) - new Date(b.publishedAt)
+    );
     return allArticles.slice(0, neededCount);
   } catch (error) {
     console.error("Error fetching articles:", error);
 
     // Final fallback: Perplexity loop
     const allArticles = [];
+    const seen = new Set();
     while (allArticles.length < neededCount) {
       const perplexityArticle = await fetchFromPerplexity(query, country, [
         ...existingTitles,
-        ...allArticles.map(a => a.title)
+        ...allArticles.map((a) => a.title),
       ]);
       if (!perplexityArticle) break;
-      allArticles.push(perplexityArticle);
-      if (onArticle) onArticle(perplexityArticle);
+
+      const titleTrimmed = perplexityArticle.title?.trim();
+      if (titleTrimmed && !seen.has(titleTrimmed)) {
+        seen.add(titleTrimmed);
+        allArticles.push(perplexityArticle);
+        if (onArticle) onArticle(perplexityArticle);
+      }
     }
     return allArticles;
   }
 }
+
 
 
 async function cleanAndSummarize(content) { 
@@ -527,8 +610,6 @@ ${content}
 `;
 
   try {
-    console.log("Sending request to OpenAI...");
-
     const completion = await openai.chat.completions.create({
       model: "gpt-4o", // faster & cheaper than gpt-4-turbo
       messages: [
@@ -541,11 +622,7 @@ ${content}
       temperature: 0.2,
     });
 
-    console.log("OpenAI API response received:", completion);
-
     const cleanedArticle = completion?.choices?.[0]?.message?.content?.trim();
-
-    console.log("Extracted cleaned article:", cleanedArticle);
 
     if (!cleanedArticle) {
       console.log("No cleaned content returned, using original content.");
@@ -677,8 +754,6 @@ router.get("/auth/linkedin/callback", async (req, res) => {
     );
 
     const accessToken = tokenResponse.data.access_token;
-    console.log("Access Token:", accessToken);
-
     // Fetch user profile (this gives you name, ID, and localized info)
     const profileResponse = await axios.get("https://api.linkedin.com/v2/me", {
       headers: {
@@ -687,8 +762,6 @@ router.get("/auth/linkedin/callback", async (req, res) => {
     });
 
     const profile = profileResponse.data;
-    console.log("Profile Info:", profile);
-
     // Fetch email address separately
     const emailResponse = await axios.get(
       "https://api.linkedin.com/v2/emailAddress?q=members&projection=(elements*(handle~))",

@@ -516,8 +516,8 @@ wsRef.current = ws;
                   background: '#0118D8',
                   color: '#FFF',
                   px: {
-                    xs: 1.5,
-                    sm: 2,
+                    xs: 4,
+                    sm: 4,
                     md: 3,
                   },
                   "&.Mui-selected": {
