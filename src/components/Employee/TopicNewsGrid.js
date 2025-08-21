@@ -37,9 +37,37 @@ import { toast } from "react-toastify";
 
 countries.registerLocale(enLocale);
 
-const countryOptions = Object.entries(
-  countries.getNames("en", { select: "official" })
-).map(([code, name]) => ({ code, name }));
+const countryOptions = [
+  { code: "AU", name: "Australia" },
+  { code: "BR", name: "Brazil" },
+  { code: "CA", name: "Canada" },
+  { code: "CN", name: "China" },
+  { code: "EG", name: "Egypt" },
+  { code: "FR", name: "France" },
+  { code: "DE", name: "Germany" },
+  { code: "GR", name: "Greece" },
+  { code: "HK", name: "Hong Kong" },
+  { code: "IN", name: "India" },
+  { code: "IE", name: "Ireland" },
+  { code: "IT", name: "Italy" },
+  { code: "JP", name: "Japan" },
+  { code: "NL", name: "Netherlands" },
+  { code: "NO", name: "Norway" },
+  { code: "PK", name: "Pakistan" },
+  { code: "PE", name: "Peru" },
+  { code: "PH", name: "Philippines" },
+  { code: "PT", name: "Portugal" },
+  { code: "RO", name: "Romania" },
+  { code: "RU", name: "Russian Federation" },
+  { code: "SG", name: "Singapore" },
+  { code: "ES", name: "Spain" },
+  { code: "SE", name: "Sweden" },
+  { code: "CH", name: "Switzerland" },
+  { code: "TW", name: "Taiwan" },
+  { code: "UA", name: "Ukraine" },
+  { code: "GB", name: "United Kingdom" },
+  { code: "US", name: "United States" },
+];
 
 const truncate = (text, limit = 220) =>
   text.length > limit ? text.slice(0, limit) + "..." : text;
@@ -58,7 +86,7 @@ export default function TopicNewsGrid() {
   const [showTopicDialog, setShowTopicDialog] = useState(false);
   // const baseUrl = "http://localhost:8001/usersOn";
   const baseUrl="/api/usersOn";
-  const [selectedRegion, setSelectedRegion] = useState("IN");
+  const [selectedRegion, setSelectedRegion] = useState("Global");
   const [topics, setTopics] = useState([]);
   const [selectedTopic, setSelectedTopic] = useState("");
   const [selectedTopics, setSelectedTopics] = useState([]);
@@ -81,12 +109,20 @@ export default function TopicNewsGrid() {
 
   const handleClick = (event) => setAnchorEl(event.currentTarget);
   const handleClose = () => setAnchorEl(null);
-  const handleCountryChange = (code) => {
-    setSelectedRegion(code);
-    setArticles([]);
-    setPage(1);
-    handleClose();
-  };
+     const getRegionLabel = () => {
+  if (selectedRegion === "Global") return "Global";
+  const found = countryOptions.find(c => c.code.toLowerCase() === String(selectedRegion).toLowerCase());
+  return found ? found.code : String(selectedRegion).toUpperCase();
+};
+
+
+  const handleCountryChange = (codeOrGlobal) => {
+  setSelectedRegion(codeOrGlobal); // "Global" or "au", "in", ...
+  setArticles([]);
+  setPage(1);
+  handleClose();
+};
+
 
   const escapeHtml = (unsafe = "") =>
     unsafe
@@ -172,13 +208,9 @@ export default function TopicNewsGrid() {
   const handleTabChange = (event, newValue) => setSelectedTopic(newValue);
  
 const handleCardClick = async (article) => {
-
-  console.log('article::::::::::::: ', article);
   setActiveArticle(article);
   setOpenDialog(true);
   setLoadingArticle(true);
-
-
 
   try {
     const res = await axios.get(`${baseUrl}/articles/clean/${article._id}`);
@@ -254,8 +286,6 @@ wsRef.current = ws;
     try {
       const message = JSON.parse(event.data);
       if (message.type === "new-article" && message.article) {
-  console.log("Incoming WS article:", message.article);
-
         setArticles((prev) => {
           if (prev.find((a) => a.title === message.article.title)) return prev;
           return [...prev, message.article];
@@ -314,7 +344,7 @@ wsRef.current = ws;
       }
     };
     fetchUserTopics();
-    detectRegionAndLoad();
+    // detectRegionAndLoad();
   }, []);
 
     useEffect(() => {
@@ -471,23 +501,10 @@ wsRef.current = ws;
               />
             </Tabs>
 
-            <ToggleButtonGroup
-              value={selectedRegion === "Global" ? "" : selectedRegion}
-              exclusive
-              size="small"
-              sx={{
-                backgroundColor: "#f5f5f5",
-                height: {
-                  xs: 32,
-                  sm: 34,
-                  md: 36,
-                },
-              }}
-            >
-              <ToggleButton
-                value={selectedRegion}
-                onClick={handleClick}
-                sx={{
+         <Button
+  onClick={handleClick}
+  size="small"
+    sx={{
                   textTransform: "none",
                   fontWeight: 500,
                   fontSize: {
@@ -495,55 +512,13 @@ wsRef.current = ws;
                     sm: "13px",
                     md: "14px",
                   },
-                  px: {
-                    xs: 1,
-                    sm: 1.5,
-                    md: 2,
-                  },
-                  pr: 0,
-                  display: "flex",
-                  alignItems: "center",
-                  "&.Mui-selected": {
-                    backgroundColor: "#0118D8",
-                    color: "#fff",
-                  },
-                  "&:hover": {
-                    color: "#000000",
-                    background: "#FFFFFF",
-                  },
-                }}
-              >
-                <Box sx={{ display: "flex", alignItems: "center" }}>
-                  {selectedRegion}
-                  <IconButton
-                    size="small"
-                    sx={{
-                      color: "#fff",
-                      ml: 0.5,
-                      p: 0,
-                      "&:hover": { backgroundColor: "transparent" },
-                    }}
-                  >
-                    <ArrowDropDownIcon fontSize="small" />
-                  </IconButton>
-                </Box>
-              </ToggleButton>
-
-              <ToggleButton
-                value="Global"
-                onClick={() => setSelectedRegion("Global")}
-                sx={{
-                  textTransform: "none",
-                  fontWeight: 500,
-                  fontSize: {
-                    xs: "12px",
-                    sm: "13px",
-                    md: "14px",
-                  },
+                  border: '1px solid blue',
+                  background: '#0118D8',
+                  color: '#FFF',
                   px: {
                     xs: 1.5,
                     sm: 2,
-                    md: 2.5,
+                    md: 3,
                   },
                   "&.Mui-selected": {
                     backgroundColor: "#0118D8",
@@ -554,18 +529,42 @@ wsRef.current = ws;
                     background: "#FFFFFF",
                   },
                 }}
-              >
-                Global
-              </ToggleButton>
-            </ToggleButtonGroup>
 
-            <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleClose}>
-              {countryOptions.map((country) => (
-                <MenuItem key={country.code} onClick={() => handleCountryChange(country.code)}>
-                  {country.name}
-                </MenuItem>
-              ))}
-            </Menu>
+
+  endIcon={<ArrowDropDownIcon />}
+>
+  {getRegionLabel()}
+</Button>
+
+<Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleClose}>
+  {/* Title */}
+  <MenuItem disabled sx={{ opacity: 1, pointerEvents: "none" }}>
+    <Typography sx={{ fontWeight: 600 }}>Select Country</Typography>
+  </MenuItem>
+
+  {/* Global option */}
+  <MenuItem
+    selected={selectedRegion === "Global"}
+    onClick={() => handleCountryChange("Global")}
+  >
+    Global
+  </MenuItem>
+
+  <Box sx={{ mx: 1, my: 0.5, height: 1, backgroundColor: "divider" }} />
+
+  {/* Your whitelisted countries */}
+  {countryOptions.map((country) => (
+    <MenuItem
+      key={country.code}
+      selected={
+        String(selectedRegion).toLowerCase() === String(country.code).toLowerCase()
+      }
+      onClick={() => handleCountryChange(country.code)}
+    >
+      {country.name}
+    </MenuItem>
+  ))}
+</Menu>
           </Box>
         </Box>
 
