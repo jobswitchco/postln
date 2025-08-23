@@ -266,8 +266,16 @@ const setupWebSocket = (topic, region, page = 1, limit = 9) => {
     try { wsRef.current.close(); } catch {}
     wsRef.current = null;
   }
-  const ws = new WebSocket("ws://localhost:8001");
-  wsRef.current = ws;
+
+    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+
+  // Build WS URL dynamically
+  // If your server exposes WS on same origin:
+  const wsUrl = `${protocol}://${window.location.host}/api/usersOn`; // matches your express route + WS server
+
+const ws = new WebSocket(wsUrl);
+wsRef.current = ws;
+
 
   // ✅ Only reset requestedCount for first page
   if (page === 1) {
@@ -290,8 +298,6 @@ const setupWebSocket = (topic, region, page = 1, limit = 9) => {
     try {
       const message = JSON.parse(event.data);
       if (message.type === "new-article" && message.article) {
-  console.log("Incoming WS article:", message.article);
-
         setArticles((prev) => {
           if (prev.find((a) => a.title === message.article.title)) return prev;
           return [...prev, message.article];
