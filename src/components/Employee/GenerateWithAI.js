@@ -5,15 +5,40 @@ import {
   DialogContent,
   DialogActions,
   Typography,
+  Tabs,
+  ToggleButtonGroup,
+  ToggleButton,
   CircularProgress ,
   Box,
   useMediaQuery
 } from "@mui/material";
 import axios from "axios";
-
+import FormatAlignLeftIcon from "@mui/icons-material/FormatAlignLeft";
+import EmojiEmotionsIcon from "@mui/icons-material/EmojiEmotions";
+import TagIcon from "@mui/icons-material/Tag";
+import LinkOutlinedIcon from '@mui/icons-material/LinkOutlined';
+import CampaignIcon from "@mui/icons-material/Campaign";
+import CompressIcon from "@mui/icons-material/Compress";
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import SpatialAudioOffOutlinedIcon from '@mui/icons-material/SpatialAudioOffOutlined';
+import Tooltip, { tooltipClasses } from '@mui/material/Tooltip';
+import { styled } from '@mui/material/styles';
+import SegmentOutlinedIcon from '@mui/icons-material/SegmentOutlined';
+import FormatListBulletedOutlinedIcon from '@mui/icons-material/FormatListBulletedOutlined';
 
+
+const CustomTooltip = styled(({ className, placement = "top", ...props }) => (
+  <Tooltip {...props} placement={placement} classes={{ popper: className }} />
+))(() => ({
+  [`& .${tooltipClasses.tooltip}`]: {
+    backgroundColor: "#295F98",
+    color: "#FFFFFF",
+    fontSize: 13,
+    borderRadius: 4,
+    padding: "8px 12px",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+  },
+}));
 
 const GenerateWithAI = ({ open, postText, onClose, onRewriteComplete }) => {
   
@@ -28,9 +53,8 @@ const GenerateWithAI = ({ open, postText, onClose, onRewriteComplete }) => {
   });
 
   const [tone, setTone] = useState("professional");
-  // const baseUrl = "http://localhost:8001/usersOn";
-      const baseUrl="/api/usersOn";
   const isMobile = useMediaQuery('(max-width:600px)');
+  const baseUrl = "/api/usersOn";
   const [isLoading, setIsLoading] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
 
@@ -302,7 +326,7 @@ const GenerateWithAI = ({ open, postText, onClose, onRewriteComplete }) => {
 
     </Dialog>
 
-      <Dialog
+    <Dialog
   open={upgradeOpen}
   onClose={() => setUpgradeOpen(false)}
   fullWidth
@@ -353,8 +377,8 @@ const GenerateWithAI = ({ open, postText, onClose, onRewriteComplete }) => {
     </Box>
   </DialogActions>
 </Dialog>
-
 </>
+
   );
 };
 

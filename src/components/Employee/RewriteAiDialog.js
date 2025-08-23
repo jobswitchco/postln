@@ -5,12 +5,24 @@ import {
   DialogContent,
   DialogActions,
   Typography,
+  Chip,
+  ToggleButtonGroup,
+  ToggleButton,
   CircularProgress ,
   Box,
+  Stack,
   useMediaQuery
 } from "@mui/material";
 import axios from "axios";
+import FormatAlignLeftIcon from "@mui/icons-material/FormatAlignLeft";
+import EmojiEmotionsIcon from "@mui/icons-material/EmojiEmotions";
+import TagIcon from "@mui/icons-material/Tag";
+import LinkOutlinedIcon from '@mui/icons-material/LinkOutlined';
+import CampaignIcon from "@mui/icons-material/Campaign";
+import SegmentOutlinedIcon from '@mui/icons-material/SegmentOutlined';
+import FormatListBulletedOutlinedIcon from '@mui/icons-material/FormatListBulletedOutlined';
 import SpatialAudioOffOutlinedIcon from '@mui/icons-material/SpatialAudioOffOutlined';
+import CompressIcon from "@mui/icons-material/Compress";
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import Tooltip, { tooltipClasses } from '@mui/material/Tooltip';
 import { styled } from '@mui/material/styles';

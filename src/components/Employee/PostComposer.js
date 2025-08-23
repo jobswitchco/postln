@@ -102,7 +102,10 @@ const [publishSuccessSnackbar, setPublishSuccessSnackbar] = useState({
 });
  const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-  const baseUrl="/api/usersOn";
+
+
+  const baseUrl = "/api/usersOn";
+
     const [rewrites, setRewrites] = useState([]); // string[] or {post, rating}[]
     const [currentIdx, setCurrentIdx] = useState(0);
 
