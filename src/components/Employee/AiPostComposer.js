@@ -63,7 +63,7 @@ const AiPostComposer = ({ open, postText, onClose }) => {
   const [composerOpen, setComposerOpen] = useState(false);
   const [composerText, setComposerText] = useState("");
 
-  // Image selection (mobile-safe)
+  // Image selection (fixed for mobile JFIF/pjpeg)
   const [selectedFile, setSelectedFile] = useState(null);      // File | null
   const [previewUrl, setPreviewUrl] = useState(null);          // string | null
 
@@ -73,8 +73,6 @@ const AiPostComposer = ({ open, postText, onClose }) => {
   const [selectedDate, setSelectedDate] = useState(dayjs());
   const [selectedTime, setSelectedTime] = useState("");
   const [snackbarOpen, setSnackbarOpen] = useState(false);
-  const [snackbarMsg, setSnackbarMsg] = useState("Copied!");
-
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
   const [isRewriteOpen, setIsRewriteOpen] = useState(false);
@@ -179,118 +177,44 @@ const AiPostComposer = ({ open, postText, onClose }) => {
     return slots;
   };
 
-  // ---------- Image normalization helpers (fix mobile HEIC/unknown MIME) ----------
-  const SUPPORTED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
-
-  const blobToCanvasJPEG = async (blob) => {
-    // Try createImageBitmap first (faster, safer in many WebKit builds)
-    try {
-      const bmp = await createImageBitmap(blob);
-      const canvas = document.createElement("canvas");
-      canvas.width = bmp.width;
-      canvas.height = bmp.height;
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(bmp, 0, 0);
-      return await new Promise((resolve, reject) => {
-        canvas.toBlob((outBlob) => {
-          if (outBlob) resolve(outBlob);
-          else reject(new Error("toBlob failed"));
-        }, "image/jpeg", 0.9);
-      });
-    } catch {
-      // Fallback to <img> decode
-      try {
-        const url = URL.createObjectURL(blob);
-        const img = new Image();
-        img.crossOrigin = "anonymous";
-        const loaded = await new Promise((resolve, reject) => {
-          img.onload = () => resolve(true);
-          img.onerror = () => reject(new Error("Image decode failed"));
-          img.src = url;
-        });
-        if (!loaded) throw new Error("Image not loaded");
-        const canvas = document.createElement("canvas");
-        canvas.width = img.naturalWidth;
-        canvas.height = img.naturalHeight;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(img, 0, 0);
-        URL.revokeObjectURL(url);
-        return await new Promise((resolve, reject) => {
-          canvas.toBlob((outBlob) => {
-            if (outBlob) resolve(outBlob);
-            else reject(new Error("toBlob failed"));
-          }, "image/jpeg", 0.9);
-        });
-      } catch (e) {
-        throw e;
-      }
-    }
+  // ---------------- JPEG/JFIF/PJPEG normalizer (client-side fix) ----------------
+  const needsJpegNormalization = (file) => {
+    const type = (file?.type || "").toLowerCase();
+    const name = (file?.name || "").toLowerCase();
+    const badMime = type === "image/pjpeg" || type === "image/jfif" || type === "";
+    const badExt = name.endsWith(".jfif") || name.endsWith(".pjpeg");
+    return badMime || badExt;
   };
 
-  const normalizeImageForUpload = async (file) => {
-    // If already supported, keep as-is
-    if (file && file.type && SUPPORTED_TYPES.has(file.type)) {
-      return file;
-    }
-    // Unknown/HEIC/etc: try convert to JPEG
-    try {
-      const jpegBlob = await blobToCanvasJPEG(file);
-      const outFile = new File([jpegBlob], (file.name?.replace(/\.[^/.]+$/, "") || "upload") + ".jpg", {
-        type: "image/jpeg",
-        lastModified: Date.now(),
-      });
-      return outFile;
-    } catch (err) {
-      // Could not convert (likely true HEIC without decoder)
-      throw err;
-    }
-  };
-  // -------------------------------------------------------------------------------
+  const normalizeJPEGFile = (file) => {
+    if (!file) return file;
+    if (!needsJpegNormalization(file)) return file;
 
-  // MOBILE-SAFE: keep the File and create a preview URL (with conversion when needed)
-  const handleImageSelect = async (event) => {
+    const cleanNameBase = (file.name ? file.name.replace(/\.[^/.]+$/, "") : "upload");
+    const normalized = new File([file], `${cleanNameBase}.jpg`, {
+      type: "image/jpeg",
+      lastModified: Date.now(),
+    });
+    return normalized;
+  };
+  // ------------------------------------------------------------------------------
+
+  // MOBILE-SAFE: keep the File and create a preview URL (with normalization)
+  const handleImageSelect = (event) => {
     const file = event.target.files?.[0];
-    // Clear the input so the same file can be re-selected
+    // allow re-picking same file
     if (event.target) event.target.value = null;
     if (!file) return;
 
+    const finalFile = normalizeJPEGFile(file);
+    setSelectedFile(finalFile);
+
     try {
-      let finalFile = file;
-
-      // Try to normalize when MIME is unsupported/empty
-      if (!file.type || !SUPPORTED_TYPES.has(file.type)) {
-        try {
-          finalFile = await normalizeImageForUpload(file);
-          setSnackbarMsg("Converted image to JPG for upload (mobile).");
-          setSnackbarOpen(true);
-        } catch (convErr) {
-          // Conversion failed (e.g., true HEIC not decodable by browser)
-          setSnackbarMsg(
-            "This image format isn’t supported by your browser. On iPhone, set Camera → Formats → Most Compatible, or take a screenshot to convert to PNG."
-          );
-          setSnackbarOpen(true);
-          // Still allow preview if possible; else abort selection
-          try {
-            const urlTry = URL.createObjectURL(file);
-            setPreviewUrl(urlTry);
-          } catch {}
-          // Keep the original file anyway; backend may still accept
-          finalFile = file;
-        }
-      }
-
-      setSelectedFile(finalFile);
-      // Always create preview from whatever we keep
-      try {
-        const url = URL.createObjectURL(finalFile);
-        setPreviewUrl(url);
-      } catch {
-        setPreviewUrl(null);
-      }
-    } catch (err) {
-      console.error("Image selection failed:", err);
-      setSnackbarMsg("Couldn’t read the selected image.");
-      setSnackbarOpen(true);
+      const url = URL.createObjectURL(finalFile);
+      setPreviewUrl(url);
+    } catch (e) {
+      console.error("Failed to preview image:", e);
+      setPreviewUrl(null);
     }
   };
 
@@ -302,7 +226,6 @@ const AiPostComposer = ({ open, postText, onClose }) => {
   const handleCopy = async (textToCopy) => {
     try {
       await navigator.clipboard.writeText(textToCopy ?? editedText ?? postText ?? "");
-      setSnackbarMsg("Copied!");
       setSnackbarOpen(true);
     } catch (err) {
       console.error('Failed to copy:', err);
@@ -317,7 +240,7 @@ const AiPostComposer = ({ open, postText, onClose }) => {
       if (selectedFile) {
         const formData = new FormData();
         formData.append("postText", editedText);
-        // ensure filename has a stable extension for servers that validate by name
+        // pass a stable .jpg filename to satisfy strict backends
         const fname = selectedFile.name || "upload.jpg";
         formData.append("image", selectedFile, fname);
 
@@ -342,9 +265,7 @@ const AiPostComposer = ({ open, postText, onClose }) => {
       setPublishing(false);
     } catch (err) {
       setPublishing(false);
-      console.error("Failed to publish:", err?.response?.data || err?.message);
-      setSnackbarMsg("Publish failed. If this was a photo from your phone, try switching camera format to JPEG.");
-      setSnackbarOpen(true);
+      console.error("Failed to publish:", err.response?.data || err.message);
     }
   };
 
@@ -393,9 +314,7 @@ const AiPostComposer = ({ open, postText, onClose }) => {
       setScheduling(false);
     } catch (err) {
       setScheduling(false);
-      console.error("Failed to schedule:", err?.response?.data || err?.message);
-      setSnackbarMsg("Scheduling failed. Try selecting a JPG/PNG image.");
-      setSnackbarOpen(true);
+      console.error("Failed to schedule:", err.response?.data || err.message);
     }
   };
 
@@ -434,9 +353,7 @@ const AiPostComposer = ({ open, postText, onClose }) => {
       setDrafting(false);
     } catch (err) {
       setDrafting(false);
-      console.error("Failed to save draft:", err?.response?.data || err?.message);
-      setSnackbarMsg("Saving draft failed. Try a JPG/PNG image.");
-      setSnackbarOpen(true);
+      console.error("Failed to save draft:", err.response?.data || err.message);
     }
   };
 
@@ -890,9 +807,9 @@ const AiPostComposer = ({ open, postText, onClose }) => {
                 </IconButton>
                 <Snackbar
                   open={snackbarOpen}
-                  autoHideDuration={2600}
+                  autoHideDuration={2000}
                   onClose={() => setSnackbarOpen(false)}
-                  message={snackbarMsg}
+                  message="Copied!"
                   anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
                 />
 
@@ -934,9 +851,6 @@ const AiPostComposer = ({ open, postText, onClose }) => {
                     type="file"
                     hidden
                     accept="image/*"
-                    // Hint browsers to use camera on mobile; also helps with odd camera pickers
-                    capture="environment"
-                    multiple={false}
                     onChange={handleImageSelect}
                   />
                 </IconButton>
