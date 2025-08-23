@@ -1480,6 +1480,7 @@ router.post("/publish-media-post", upload.single("image"), authenticateToken, as
     const accessToken = user.access_token;
     const personURN = `urn:li:person:${user.sub}`;
     const { postText } = req.body;
+    console.log('postText: ', postText);
     const imageFile = req.file;
 
     if (!postText) return res.status(400).json({ message: "postText is required" });
