@@ -49,7 +49,7 @@ const GenerateWithAI = ({ open, postText, onClose, onRewriteComplete }) => {
         { withCredentials: true }
       );
 
-      const { generated, rewrittenText, error } = response.data;
+      const { generated, rewrittenTexts, error } = response.data;
 
       if (!generated) {
         // 🔴 Insufficient credits → open upgrade dialog
@@ -62,8 +62,8 @@ const GenerateWithAI = ({ open, postText, onClose, onRewriteComplete }) => {
       }
 
       // ✅ Post successfully generated
-      if (rewrittenText) {
-        onRewriteComplete(rewrittenText.post || rewrittenText);
+      if (rewrittenTexts) {
+        onRewriteComplete(rewrittenTexts);
         onClose();
       } else {
         console.error("No rewritten text received.");
@@ -74,6 +74,7 @@ const GenerateWithAI = ({ open, postText, onClose, onRewriteComplete }) => {
       setIsLoading(false);
     }
   };
+
 
 
 

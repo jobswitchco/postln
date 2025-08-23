@@ -10,10 +10,24 @@ import {
   useMediaQuery
 } from "@mui/material";
 import axios from "axios";
-
 import SpatialAudioOffOutlinedIcon from '@mui/icons-material/SpatialAudioOffOutlined';
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
+import Tooltip, { tooltipClasses } from '@mui/material/Tooltip';
+import { styled } from '@mui/material/styles';
 
+
+const CustomTooltip = styled(({ className, placement = "top", ...props }) => (
+  <Tooltip {...props} placement={placement} classes={{ popper: className }} />
+))(() => ({
+  [`& .${tooltipClasses.tooltip}`]: {
+    backgroundColor: "#295F98",
+    color: "#FFFFFF",
+    fontSize: 13,
+    borderRadius: 4,
+    padding: "8px 12px",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+  },
+}));
 
 const RewriteAiDialog = ({ open, onClose, onPreview, onReplace, postText }) => {
   
@@ -28,11 +42,11 @@ const RewriteAiDialog = ({ open, onClose, onPreview, onReplace, postText }) => {
   });
 
   const [tone, setTone] = useState("professional");
-  // const baseUrl = "http://localhost:8001/usersOn";
-      const baseUrl="/api/usersOn";
   const isMobile = useMediaQuery('(max-width:600px)');
-  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const baseUrl = "/api/usersOn";
   const [isLoading, setIsLoading] = useState(false);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+
 
 
 
@@ -47,7 +61,7 @@ const handleRewritePost = async (postText) => {
       textPost : postText,
     }, {withCredentials : true});
 
-    const { generated, rewrittenText, error } = response.data;
+    const { generated, rewrittenTexts, error } = response.data;
 
      if (!generated) {
         // 🔴 Insufficient credits → open upgrade dialog
@@ -59,8 +73,10 @@ const handleRewritePost = async (postText) => {
         return;
       }
 
-             if (rewrittenText) {
-        onReplace(rewrittenText.post || rewrittenText);
+      console.log('response::::::::', response.data);
+
+             if (rewrittenTexts) {
+        onReplace(rewrittenTexts);
         onClose();
       } else {
         console.error("No rewritten text received.");
@@ -77,7 +93,6 @@ const handleRewritePost = async (postText) => {
 
 
   return (
-
     <>
   <Dialog
   open={open}
@@ -300,7 +315,7 @@ const handleRewritePost = async (postText) => {
 
     </Dialog>
 
-       <Dialog
+    <Dialog
   open={upgradeOpen}
   onClose={() => setUpgradeOpen(false)}
   fullWidth
@@ -351,7 +366,6 @@ const handleRewritePost = async (postText) => {
     </Box>
   </DialogActions>
 </Dialog>
-
 </>
   );
 };

@@ -37,6 +37,10 @@ import { toast } from "react-toastify";
 
 countries.registerLocale(enLocale);
 
+// const countryOptions = Object.entries(
+//   countries.getNames("en", { select: "official" })
+// ).map(([code, name]) => ({ code, name }));
+
 const countryOptions = [
   { code: "AU", name: "Australia" },
   { code: "BR", name: "Brazil" },
@@ -69,6 +73,9 @@ const countryOptions = [
   { code: "US", name: "United States" },
 ];
 
+
+
+
 const truncate = (text, limit = 220) =>
   text.length > limit ? text.slice(0, limit) + "..." : text;
 
@@ -84,8 +91,7 @@ export default function TopicNewsGrid() {
   const [rewrittenText, setRewrittenText] = useState("");
   const [showComposer, setShowComposer] = useState(false);
   const [showTopicDialog, setShowTopicDialog] = useState(false);
-  // const baseUrl = "http://localhost:8001/usersOn";
-  const baseUrl="/api/usersOn";
+  const baseUrl = "/api/usersOn";
   const [selectedRegion, setSelectedRegion] = useState("Global");
   const [topics, setTopics] = useState([]);
   const [selectedTopic, setSelectedTopic] = useState("");
@@ -109,7 +115,8 @@ export default function TopicNewsGrid() {
 
   const handleClick = (event) => setAnchorEl(event.currentTarget);
   const handleClose = () => setAnchorEl(null);
-     const getRegionLabel = () => {
+
+    const getRegionLabel = () => {
   if (selectedRegion === "Global") return "Global";
   const found = countryOptions.find(c => c.code.toLowerCase() === String(selectedRegion).toLowerCase());
   return found ? found.code : String(selectedRegion).toUpperCase();
@@ -122,6 +129,8 @@ export default function TopicNewsGrid() {
   setPage(1);
   handleClose();
 };
+
+
 
 
   const escapeHtml = (unsafe = "") =>
@@ -208,9 +217,12 @@ export default function TopicNewsGrid() {
   const handleTabChange = (event, newValue) => setSelectedTopic(newValue);
  
 const handleCardClick = async (article) => {
+
   setActiveArticle(article);
   setOpenDialog(true);
   setLoadingArticle(true);
+
+
 
   try {
     const res = await axios.get(`${baseUrl}/articles/clean/${article._id}`);
@@ -254,16 +266,8 @@ const setupWebSocket = (topic, region, page = 1, limit = 9) => {
     try { wsRef.current.close(); } catch {}
     wsRef.current = null;
   }
-
-    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-
-  // Build WS URL dynamically
-  // If your server exposes WS on same origin:
-  const wsUrl = `${protocol}://${window.location.host}/api/usersOn`; // matches your express route + WS server
-
-const ws = new WebSocket(wsUrl);
-wsRef.current = ws;
-
+  const ws = new WebSocket("ws://localhost:8001");
+  wsRef.current = ws;
 
   // ✅ Only reset requestedCount for first page
   if (page === 1) {
@@ -286,6 +290,8 @@ wsRef.current = ws;
     try {
       const message = JSON.parse(event.data);
       if (message.type === "new-article" && message.article) {
+  console.log("Incoming WS article:", message.article);
+
         setArticles((prev) => {
           if (prev.find((a) => a.title === message.article.title)) return prev;
           return [...prev, message.article];
@@ -354,7 +360,7 @@ wsRef.current = ws;
       }
     }, [selectedTopic, selectedRegion]);
   
-   const saveUserTopics = async () => {
+    const saveUserTopics = async () => {
       try {
         setSaveTopicsLoading(true);
         const response = await axios.post(
@@ -501,7 +507,9 @@ wsRef.current = ws;
               />
             </Tabs>
 
-         <Button
+          
+        {/* Single Region Button */}
+<Button
   onClick={handleClick}
   size="small"
     sx={{
@@ -518,7 +526,7 @@ wsRef.current = ws;
                   px: {
                     xs: 4,
                     sm: 4,
-                    md: 3,
+                    md: 4,
                   },
                   "&.Mui-selected": {
                     backgroundColor: "#0118D8",
@@ -565,6 +573,7 @@ wsRef.current = ws;
     </MenuItem>
   ))}
 </Menu>
+
           </Box>
         </Box>
 
@@ -683,7 +692,8 @@ wsRef.current = ws;
 </Button>
         </Box>
       </Box>
-   <Dialog
+
+         <Dialog
                 open={showTopicDialog}
                 onClose={() => setShowTopicDialog(false)}
                 maxWidth="md"
@@ -805,6 +815,7 @@ wsRef.current = ws;
       
               {/* Dialog */}
 
+
 <Dialog
   open={openDialog}
   onClose={() => {}}
@@ -883,6 +894,7 @@ wsRef.current = ws;
     </Box>
   </DialogActions>
 </Dialog>
+
 
 
       

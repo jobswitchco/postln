@@ -1297,51 +1297,57 @@ router.post('/rewrite-post', authenticateToken, async (req, res) => {
   const { textPost } = req.body;
 
   try {
-    // fetch user and credits
     const user = await USER.findById(user_id).select('fine_tuned_model credits_left');
-
     if (!user) {
-      return res.status(200).json({
-        generated: false,
-        error: 'User not found',
-      });
+      return res.status(200).json({ generated: false, error: 'User not found' });
     }
 
-    // check if user has enough credits
-    if (!user.credits_left || user.credits_left <= 0) {
-      return res.status(200).json({
-        generated: false,
-        error: 'Insufficient credits',
-      });
+    // ✅ Need only 1 credit for the whole request (bundle of 3 variants)
+    if (!user.credits_left || user.credits_left < 1) {
+      return res.status(200).json({ generated: false, error: 'Insufficient credits (need at least 1)' });
     }
 
-    // sanitize and generate rewritten post
     const postText = await sanitizeInput(textPost);
-    const generatedPostLn = await generateLinkedInPost(postText, user.fine_tuned_model)
-      .then((post) => post)
-      .catch((err) => {
-        console.error('Generate error:', err);
-        throw new Error('Post generation failed');
-      });
 
-    // decrement credits by 1 ONLY after successful generation
-    const updatedUser = await USER.findByIdAndUpdate(
-      user_id,
+    const VARIANTS = 3;
+    const results = await Promise.allSettled(
+      Array.from({ length: VARIANTS }, () =>
+        generateLinkedInPost(postText, user.fine_tuned_model)
+      )
+    );
+
+    const successes = results
+      .filter(r => r.status === 'fulfilled')
+      .map(r => r.value);
+
+    if (successes.length === 0) {
+      // ❌ Nothing generated, don't consume credit
+      return res.status(200).json({ generated: false, error: 'Failed to rewrite post' });
+    }
+
+    // ✅ Consume exactly ONE credit, atomically guard against race conditions
+    const updatedUser = await USER.findOneAndUpdate(
+      { _id: user_id, credits_left: { $gte: 1 } },
       { $inc: { credits_left: -1 } },
-      { new: true } // return updated user
+      { new: true }
     ).select('credits_left');
+
+    if (!updatedUser) {
+      // Another request may have spent the last credit — fail gracefully
+      return res.status(200).json({ generated: false, error: 'Insufficient credits' });
+    }
+
+    // (Optional) if you always want 3 results, backfill with duplicates
+    while (successes.length < VARIANTS) successes.push(successes[0]);
 
     return res.status(200).json({
       generated: true,
-      rewrittenText: generatedPostLn,
+      rewrittenTexts: successes, // 1–3 variants depending on success
       credits_left: updatedUser.credits_left,
     });
   } catch (error) {
     console.error('Rewrite error:', error);
-    return res.status(200).json({
-      generated: false,
-      error: 'Failed to rewrite post',
-    });
+    return res.status(200).json({ generated: false, error: 'Failed to rewrite post' });
   }
 });
 
@@ -1599,6 +1605,7 @@ router.post("/publish-media-post", upload.single("image"), authenticateToken, as
 });
 
 
+
 router.post("/schedule-text-post", authenticateToken, async (req, res) => {
   try {
     const userId = req.user?.user_id;
@@ -1641,6 +1648,7 @@ router.post("/schedule-media-post", upload.single("image"), authenticateToken, a
 
   const { postText, schedule_at } = req.body;
 
+  console.log('postText : ', postText);
   // const scheduledAt = '2025-07-23T18:36:00.000Z';
 
   const imageFile = req.file;
