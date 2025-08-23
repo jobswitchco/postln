@@ -1468,6 +1468,8 @@ router.post("/publish-text-post", authenticateToken, async (req, res) => {
 
 
 router.post("/publish-media-post", upload.single("image"), authenticateToken, async (req, res) => {
+
+  console.log('Hit Publish-media-post');
   const userId = req.user?.user_id;
   if (!userId) return res.status(401).json({ message: "Unauthorized: No session user" });
 
