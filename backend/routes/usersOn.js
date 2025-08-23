@@ -721,8 +721,8 @@ router.post("/upload-image", upload.single("image"), authenticateToken, async (r
 router.post("/logout", authenticateToken, (req, res) => {
   res.clearCookie("token_professional", {
     httpOnly: true,
-    secure: false, // Set to true in production with HTTPS
-    sameSite: "Strict",
+    secure: true, // Set to true in production with HTTPS
+    sameSite: "None",
   });
   res.status(200).json({ message: "Logged out successfully" });
 });
@@ -868,15 +868,9 @@ router.post("/send_linkedin_code", async (req, res) => {
       const token = await generateJWTtoken(user._id, user.email);
 
     res.cookie("token_professional", token, {
-      httpOnly: true,
-      secure: false,
-      sameSite: "Lax",
-    });
-
-    res.cookie("token_professional", token, {
   httpOnly: true,
   secure: true,
-  sameSite: "Lax",
+  sameSite: "None",
   maxAge: 7 * 24 * 60 * 60 * 1000,
 });
 
