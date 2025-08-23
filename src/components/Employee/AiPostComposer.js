@@ -59,9 +59,13 @@ dayjs.extend(isSameOrBefore);
 const AiPostComposer = ({ open, postText, onClose }) => {
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  // NEW: dedicated full-screen composer dialog states
+  // Full-screen composer states
   const [composerOpen, setComposerOpen] = useState(false);
   const [composerText, setComposerText] = useState("");
+
+  // Image selection (fixed for mobile)
+  const [selectedFile, setSelectedFile] = useState(null);      // File | null
+  const [previewUrl, setPreviewUrl] = useState(null);          // string | null
 
   const [postVisibility, setPostVisibility] = useState("anyone");
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -70,9 +74,8 @@ const AiPostComposer = ({ open, postText, onClose }) => {
   const [selectedTime, setSelectedTime] = useState("");
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [selectedImage, setSelectedImage] = useState(null);
+
   const [isRewriteOpen, setIsRewriteOpen] = useState(false);
-  const [originalPostText, setOriginalPostText] = useState("");
   const inputRef = useRef(null);
   const [cursorPos, setCursorPos] = useState(0);
   const [editedText, setEditedText] = useState(postText || "");
@@ -84,8 +87,9 @@ const AiPostComposer = ({ open, postText, onClose }) => {
   const baseUrl = "/api/usersOn";
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-  // NEW: state for 3 rewritten versions + carousel index
-  const [rewrites, setRewrites] = useState([]); // string[] or {post, rating}[]
+
+  // 3 rewritten versions + carousel index
+  const [rewrites, setRewrites] = useState([]);
   const [currentIdx, setCurrentIdx] = useState(0);
 
   const CHARACTER_LIMIT = 2800;
@@ -105,21 +109,20 @@ const AiPostComposer = ({ open, postText, onClose }) => {
     }
   }, [open, postText]);
 
-  const prevImageUrl = useRef(null);
-
-useEffect(() => {
-  if (prevImageUrl.current && prevImageUrl.current !== selectedImage && prevImageUrl.current.startsWith('blob:')) {
-    URL.revokeObjectURL(prevImageUrl.current);
-  }
-  prevImageUrl.current = selectedImage;
-
-  return () => {
-    if (prevImageUrl.current && prevImageUrl.current.startsWith('blob:')) {
-      URL.revokeObjectURL(prevImageUrl.current);
+  // Revoke any old preview URL
+  const prevUrlRef = useRef(null);
+  useEffect(() => {
+    if (prevUrlRef.current && prevUrlRef.current !== previewUrl && prevUrlRef.current.startsWith('blob:')) {
+      URL.revokeObjectURL(prevUrlRef.current);
     }
-  };
-}, [selectedImage]);
+    prevUrlRef.current = previewUrl;
 
+    return () => {
+      if (prevUrlRef.current && prevUrlRef.current.startsWith('blob:')) {
+        URL.revokeObjectURL(prevUrlRef.current);
+      }
+    };
+  }, [previewUrl]);
 
   useEffect(() => {
     const fetchUserName = async () => {
@@ -150,9 +153,9 @@ useEffect(() => {
     },
   }));
 
-  const getAvailableTimeSlots = (selectedDate) => {
+  const getAvailableTimeSlots = (selectedDateValue) => {
     const now = dayjs();
-    const selected = dayjs(selectedDate).startOf('day');
+    const selected = dayjs(selectedDateValue).startOf('day');
     let startTime;
 
     if (selected.isSame(now, 'day')) {
@@ -174,11 +177,23 @@ useEffect(() => {
     return slots;
   };
 
+  // MOBILE-SAFE: keep the File and create a preview URL
   const handleImageSelect = (event) => {
-    const file = event.target.files[0];
-    if (file && ['image/jpeg', 'image/png', 'image/jpg'].includes(file.type)) {
-      setSelectedImage(URL.createObjectURL(file));
-    }
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // (Optional) validate size/type here; allow image/* so iOS HEIC passes through
+    setSelectedFile(file);
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+
+    // clear the input so the same file can be re-selected
+    event.target.value = null;
+  };
+
+  const clearSelectedImage = () => {
+    setSelectedFile(null);
+    setPreviewUrl(null);
   };
 
   const handleCopy = async (textToCopy) => {
@@ -195,29 +210,28 @@ useEffect(() => {
       setPublishing(true);
       let res;
 
-      if (selectedImage) {
+      if (selectedFile) {
         const formData = new FormData();
         formData.append("postText", editedText);
-
-        const blob = await fetch(selectedImage).then(r => r.blob());
-        const file = new File([blob], "upload.jpg", { type: blob.type });
-        formData.append("image", file);
+        // use the real File directly — works reliably on mobile
+        formData.append("image", selectedFile);
 
         res = await axios.post(baseUrl + "/publish-media-post", formData, {
           withCredentials: true,
           headers: { "Content-Type": "multipart/form-data" },
         });
       } else {
-        res = await axios.post(baseUrl + "/publish-text-post", { postText: editedText }, {
-          withCredentials: true,
-          headers: { "Content-Type": "application/json" },
-        });
+        res = await axios.post(
+          baseUrl + "/publish-text-post",
+          { postText: editedText },
+          { withCredentials: true, headers: { "Content-Type": "application/json" } }
+        );
       }
 
       if (res?.data?.published) {
         setPublishing(false);
         onClose("published");
-        setSelectedImage(null);
+        clearSelectedImage();
       }
 
       setPublishing(false);
@@ -233,21 +247,21 @@ useEffect(() => {
 
       const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-      const scheduledAt = dayjs(`${selectedDate.format("YYYY-MM-DD")} ${selectedTime}`, "YYYY-MM-DD h:mm A")
+      const scheduledAt = dayjs(
+        `${selectedDate.format("YYYY-MM-DD")} ${selectedTime}`,
+        "YYYY-MM-DD h:mm A"
+      )
         .tz(userTimezone)
         .toISOString();
 
       let res;
 
-      if (selectedImage) {
+      if (selectedFile) {
         const formData = new FormData();
         formData.append("postText", editedText);
         formData.append("schedule_at", scheduledAt);
         formData.append("postType", "media");
-
-        const blob = await fetch(selectedImage).then((r) => r.blob());
-        const file = new File([blob], "upload.jpg", { type: blob.type });
-        formData.append("image", file);
+        formData.append("image", selectedFile);
 
         res = await axios.post(`${baseUrl}/schedule-media-post`, formData, {
           withCredentials: true,
@@ -265,7 +279,7 @@ useEffect(() => {
         setScheduling(false);
         onClose("scheduled");
         setScheduleOpen(false);
-        setSelectedImage(null);
+        clearSelectedImage();
       }
 
       setScheduling(false);
@@ -281,14 +295,11 @@ useEffect(() => {
 
       let res;
 
-      if (selectedImage) {
+      if (selectedFile) {
         const formData = new FormData();
         formData.append("postText", editedText);
         formData.append("postType", "media");
-
-        const blob = await fetch(selectedImage).then((r) => r.blob());
-        const file = new File([blob], "draft-upload.jpg", { type: blob.type });
-        formData.append("image", file);
+        formData.append("image", selectedFile);
 
         res = await axios.post(`${baseUrl}/save-draft-media-post`, formData, {
           withCredentials: true,
@@ -306,7 +317,7 @@ useEffect(() => {
         setDrafting(false);
         onClose("drafted");
         setConfirmOpen(false);
-        setSelectedImage(null);
+        clearSelectedImage();
       }
 
       setDrafting(false);
@@ -319,14 +330,13 @@ useEffect(() => {
   const handleDiscard = () => {
     setConfirmOpen(false);
     setComposerOpen(false);
-    // onClose && onClose();
   };
 
-  // Helpers for carousel (mobile)
+  // Carousel (mobile)
   const prevCard = () => setCurrentIdx((p) => (p - 1 + rewrites.length) % rewrites.length);
   const nextCard = () => setCurrentIdx((p) => (p + 1) % rewrites.length);
 
-  // NEW: open composer helper
+  // Open composer helper
   const openComposer = (text) => {
     const t = text ?? "";
     setComposerText(t);
@@ -341,36 +351,32 @@ useEffect(() => {
       <Card variant="outlined" sx={{ height: '100%', display: 'flex', flexDirection: 'column', borderRadius: 2 }}>
         <CardContent sx={{ flexGrow: 1 }}>
           <Stack direction="row" alignItems="center" justifyContent="space-between" mb={1}>
-            <Typography sx={{ fontFamily: 'Inter', fontSize : '12px', fontWeight : 600, color: 'grey'}}>Version {index + 1}</Typography>
-           
+            <Typography sx={{ fontFamily: 'Inter', fontSize: '12px', fontWeight: 600, color: 'grey' }}>
+              Version {index + 1}
+            </Typography>
           </Stack>
           <Divider sx={{ mb: 1 }} />
           <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{text}</Typography>
         </CardContent>
         <CardActions sx={{ p: 2, pt: 0, justifyContent: 'flex-end' }}>
-          {/* UPDATED: opens the dedicated composer */}
-
           <Button
-  size="small"
-  onClick={() => openComposer(text)}
-  variant="contained"
-  sx={{
-    backgroundColor: '#093FB4',   // custom background
-    borderRadius: '20px',         // rounded corners
-    textTransform: 'none',        // prevent ALL CAPS
-    fontSize: '14px',             // custom font size
-    fontWeight: 500,
-    px: 2,                        // horizontal padding
-    py: 0.5,                      // vertical padding
-    boxShadow: '0px 3px 6px rgba(0,0,0,0.15)', // subtle shadow
-    '&:hover': {
-      backgroundColor: '#004030', // custom hover color
-    },
-  }}
->
-  Use this
-</Button>
-
+            size="small"
+            onClick={() => openComposer(text)}
+            variant="contained"
+            sx={{
+              backgroundColor: '#093FB4',
+              borderRadius: '20px',
+              textTransform: 'none',
+              fontSize: '14px',
+              fontWeight: 500,
+              px: 2,
+              py: 0.5,
+              boxShadow: '0px 3px 6px rgba(0,0,0,0.15)',
+              '&:hover': { backgroundColor: '#004030' },
+            }}
+          >
+            Use this
+          </Button>
         </CardActions>
       </Card>
     );
@@ -399,15 +405,14 @@ useEffect(() => {
             },
           }}
         >
-          <DialogContent sx={{ position: "relative", pt: 4,pb: 10 }}>
+          <DialogContent sx={{ position: "relative", pt: 4, pb: 10 }}>
             {/* Close Icon */}
-        <IconButton
-      onClick={() => onClose && onClose()}   // ← close main dialog
-      sx={{ position: "absolute", top: 8, right: 8 }}
-    >
-      <CloseIcon />
-    </IconButton>
-
+            <IconButton
+              onClick={() => onClose && onClose()}
+              sx={{ position: "absolute", top: 8, right: 8 }}
+            >
+              <CloseIcon />
+            </IconButton>
 
             {/* Header */}
             <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
@@ -428,7 +433,7 @@ useEffect(() => {
               </Stack>
             </Box>
 
-            {/* Rewritten versions section */}
+            {/* Rewritten versions */}
             <Box sx={{ mt: 3 }}>
               {!isMobile && (
                 <Grid container spacing={2}>
@@ -462,16 +467,23 @@ useEffect(() => {
                   {rewrites.length > 1 && (
                     <Stack direction="row" spacing={1} mt={1} justifyContent="center">
                       {rewrites.map((_, i) => (
-                        <Box key={i} onClick={() => setCurrentIdx(i)} sx={{ width: 8, height: 8, borderRadius: '50%', cursor: 'pointer', bgcolor: i === currentIdx ? 'primary.main' : 'grey.400' }} />
+                        <Box
+                          key={i}
+                          onClick={() => setCurrentIdx(i)}
+                          sx={{
+                            width: 8,
+                            height: 8,
+                            borderRadius: '50%',
+                            cursor: 'pointer',
+                            bgcolor: i === currentIdx ? 'primary.main' : 'grey.400'
+                          }}
+                        />
                       ))}
                     </Stack>
                   )}
                 </Box>
               )}
             </Box>
-
-            {/* Bottom bar for the MAIN dialog (optional — you can keep or remove).
-                If you want actions only in the composer, you can remove this block. */}
           </DialogContent>
         </Dialog>
       )}
@@ -483,7 +495,7 @@ useEffect(() => {
         <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} fullWidth maxWidth="sm">
           <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '16px', fontWeight: 500 }}>
             Save this post as a draft?
-            <IconButton aria-label="close" onClick={() => setConfirmOpen(false)} sx={{ color: (theme) => theme.palette.grey[500] }}>
+            <IconButton aria-label="close" onClick={() => setConfirmOpen(false)} sx={{ color: (themeVar) => themeVar.palette.grey[500] }}>
               <CloseIcon />
             </IconButton>
           </DialogTitle>
@@ -491,10 +503,27 @@ useEffect(() => {
             <Typography sx={{ fontSize: '16px' }}>The post you started will be here when you return.</Typography>
           </DialogContent>
           <DialogActions sx={{ py: 3, px: 3 }}>
-            <Box onClick={handleDiscard} sx={{ background: '#D7D7D7', borderRadius: '26px', px: 3, py: 0.7, cursor: 'pointer', '&:hover': { background: '#748873', color: '#FFFFFF' } }}>
+            <Box
+              onClick={handleDiscard}
+              sx={{
+                background: '#D7D7D7', borderRadius: '26px', px: 3, py: 0.7, cursor: 'pointer',
+                '&:hover': { background: '#748873', color: '#FFFFFF' }
+              }}
+            >
               <Typography sx={{ fontSize: '16px' }}>Discard</Typography>
             </Box>
-            <Box onClick={handleSaveDraft} sx={{ background: postText?.trim?.() === '' ? '#C4C4C4' : '#093FB4', borderRadius: '26px', px: 3, py: 0.7, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFFFFF', cursor: postText?.trim?.() === '' ? 'not-allowed' : 'pointer', pointerEvents: postText?.trim?.() === '' ? 'none' : 'auto', '&:hover': { background: postText?.trim?.() === '' ? '#C4C4C4' : '#004030' } }}>
+            <Box
+              onClick={handleSaveDraft}
+              sx={{
+                background: composerText?.trim?.() === '' ? '#C4C4C4' : '#093FB4',
+                borderRadius: '26px', px: 3, py: 0.7,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: '#FFFFFF',
+                cursor: composerText?.trim?.() === '' ? 'not-allowed' : 'pointer',
+                pointerEvents: composerText?.trim?.() === '' ? 'none' : 'auto',
+                '&:hover': { background: composerText?.trim?.() === '' ? '#C4C4C4' : '#004030' }
+              }}
+            >
               <Typography sx={{ fontSize: '16px' }}>Save as draft</Typography>
             </Box>
           </DialogActions>
@@ -511,7 +540,10 @@ useEffect(() => {
         </DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
-            <Box onClick={() => setPostVisibility("anyone")} sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", px: 2, py: 1.5, borderRadius: 2, cursor: "pointer", "&:hover": { backgroundColor: "#f5f5f5" } }}>
+            <Box
+              onClick={() => setPostVisibility("anyone")}
+              sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", px: 2, py: 1.5, borderRadius: 2, cursor: "pointer", "&:hover": { backgroundColor: "#f5f5f5" } }}
+            >
               <Stack direction="row" spacing={2} alignItems="center">
                 <Box sx={{ background: '#EAEFEF', p: 1, borderRadius: '100%' }}>
                   <PublicOutlinedIcon sx={{ fontSize: '26px', color: '#000000' }} />
@@ -524,7 +556,10 @@ useEffect(() => {
               <Radio checked={postVisibility === "anyone"} sx={{ color: "#1976d2", "&.Mui-checked": { color: "#093FB4" }, transform: "scale(1.2)" }} disableRipple />
             </Box>
 
-            <Box onClick={() => setPostVisibility("connections")} sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", px: 2, py: 1.5, borderRadius: 2, cursor: "pointer", "&:hover": { backgroundColor: "#f5f5f5" } }}>
+            <Box
+              onClick={() => setPostVisibility("connections")}
+              sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", px: 2, py: 1.5, borderRadius: 2, cursor: "pointer", "&:hover": { backgroundColor: "#f5f5f5" } }}
+            >
               <Stack direction="row" spacing={2} alignItems="center">
                 <Box sx={{ background: '#EAEFEF', p: 1, borderRadius: '100%' }}>
                   <GroupAddOutlinedIcon sx={{ fontSize: '26px', color: '#000000' }} />
@@ -557,7 +592,13 @@ useEffect(() => {
           <DialogContent>
             <Typography variant="subtitle2" sx={{ mb: 4 }}></Typography>
             <LocalizationProvider dateAdapter={AdapterDayjs}>
-              <DatePicker label="Date" value={selectedDate} onChange={(newDate) => setSelectedDate(newDate)} disablePast minDate={dayjs()} />
+              <DatePicker
+                label="Date"
+                value={selectedDate}
+                onChange={(newDate) => setSelectedDate(newDate)}
+                disablePast
+                minDate={dayjs()}
+              />
             </LocalizationProvider>
             <FormControl fullWidth={false} sx={{ mt: 3, width: isMobile ? '90%' : '400px' }}>
               <Select
@@ -579,7 +620,7 @@ useEffect(() => {
             <Box
               onClick={handleSchedule}
               sx={{
-                background: postText?.trim?.() === '' ? '#C4C4C4' : '#093FB4',
+                background: composerText?.trim?.() === '' ? '#C4C4C4' : '#093FB4',
                 borderRadius: '26px',
                 px: 3,
                 py: 0.7,
@@ -587,9 +628,9 @@ useEffect(() => {
                 alignItems: 'center',
                 justifyContent: 'center',
                 color: '#FFFFFF',
-                cursor: postText?.trim?.() === '' ? 'not-allowed' : 'pointer',
-                pointerEvents: postText?.trim?.() === '' ? 'none' : 'auto',
-                '&:hover': { background: postText?.trim?.() === '' ? '#C4C4C4' : '#004030' }
+                cursor: composerText?.trim?.() === '' ? 'not-allowed' : 'pointer',
+                pointerEvents: composerText?.trim?.() === '' ? 'none' : 'auto',
+                '&:hover': { background: composerText?.trim?.() === '' ? '#C4C4C4' : '#004030' }
               }}
             >
               <Typography sx={{ fontSize: isMobile ? '14px' : '16px' }}>Schedule</Typography>
@@ -611,249 +652,244 @@ useEffect(() => {
         }}
       />
 
-      {/* NEW: Composer full-screen dialog */}
-
-            {publishing ? (
+      {/* Composer dialog */}
+      {publishing ? (
         <FullScreenLoader open={publishing} message="Publishing..." />
       ) : (
-      <Dialog
-        open={composerOpen}
-        onClose={() => {}}
-        fullWidth
-  fullScreen={isMobile}
-        disableEscapeKeyDown
-        hideBackdrop={false}
-       PaperProps={{
-    sx: {
-      width: isMobile ? "100%" : "50%",
-      borderRadius: isMobile ? 0 : 3,
-    },
-  }}
-      >
-        <DialogContent sx={{ position: "relative", pt: 4 }}>
-          {/* Close Icon */}
-          <IconButton
-            onClick={() => {
-              if ((composerText?.trim?.() ?? "") === "") {
-                setComposerOpen(false);
-              } else {
-                setConfirmOpen(true);
-              }
-            }}
-            sx={{ position: "absolute", top: 8, right: 8 }}
-            aria-label="Close composer"
-          >
-            <CloseIcon />
-          </IconButton>
+        <Dialog
+          open={composerOpen}
+          onClose={() => {}}
+          fullWidth
+          fullScreen={isMobile}
+          disableEscapeKeyDown
+          hideBackdrop={false}
+          PaperProps={{
+            sx: {
+              width: isMobile ? "100%" : "50%",
+              borderRadius: isMobile ? 0 : 3,
+            },
+          }}
+        >
+          <DialogContent sx={{ position: "relative", pt: 4 }}>
+            {/* Close Icon */}
+            <IconButton
+              onClick={() => {
+                if ((composerText?.trim?.() ?? "") === "") {
+                  setComposerOpen(false);
+                } else {
+                  setConfirmOpen(true);
+                }
+              }}
+              sx={{ position: "absolute", top: 8, right: 8 }}
+              aria-label="Close composer"
+            >
+              <CloseIcon />
+            </IconButton>
 
-          {/* Header */}
-          <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
-            <Avatar src={profilePicture} />
-            <Stack>
-              <Typography sx={{ fontSize: '18px', fontWeight: 500 }}>{userName}</Typography>
-              <Stack
-                sx={{ display: 'flex', flexDirection: 'row', gap: 1, alignItems: 'center', cursor: 'pointer' }}
-                onClick={() => setSettingsOpen(true)}
-              >
-                <Typography sx={{ fontSize: '14px', fontWeight: 400, color: 'grey' }}>
-                  Post to {postVisibility === "anyone" ? "Anyone" : "Connections only"}
-                </Typography>
-                <ArrowDropDownOutlinedIcon />
-              </Stack>
-            </Stack>
-          </Box>
-
-          {/* MAIN CONTENT: multiline editor */}
-          <TextField
-            inputRef={inputRef}
-            multiline
-            minRows={8}
-            fullWidth
-            placeholder="Write your post..."
-            value={composerText}
-            onChange={(e) => {
-              const val = e.target.value;
-              setComposerText(val);
-              setEditedText(val);
-            }}
-            onSelect={(e) => {
-              const target = e.target;
-              setCursorPos(target.selectionStart || 0);
-            }}
-          />
-
-          {/* IMAGE PREVIEW */}
-{selectedImage && (
-  <Box sx={{ mt: 2 }}>
-    <Box
-      sx={{
-        position: 'relative',
-        border: '1px solid #eee',
-        borderRadius: 2,
-        p: 1,
-        bgcolor: '#fafafa',
-      }}
-    >
-      <img
-        src={selectedImage}
-        alt="Selected"
-        style={{
-          width: '100%',
-          maxHeight: isMobile ? 260 : 420,
-          objectFit: 'contain',
-          borderRadius: 8,
-          display: 'block',
-        }}
-      />
-      <IconButton
-        size="small"
-        onClick={() => setSelectedImage(null)}
-        sx={{ position: 'absolute', top: 6, right: 6, bgcolor: 'white' }}
-        aria-label="Remove image"
-      >
-        <CloseIcon fontSize="small" />
-      </IconButton>
-    </Box>
-  </Box>
-)}
-
-
-          {/* Bottom Icons + Character Counter */}
-          <Box
-            sx={{
-              position: "sticky",
-              bottom: 0,
-              width: "100%",
-              backgroundColor: "#fff",
-              borderTop: "1px solid #e0e0e0",
-              px: isMobile ? 0 : 3,
-              py: isMobile ? 0.5 : 1,
-              zIndex: 5,
-              mt: 2
-            }}
-          >
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <IconButton onClick={() => handleCopy(composerText)}>
-                <ContentCopyIcon sx={{ fontSize: isMobile ? '20px' : '22px' }} />
-              </IconButton>
-              <Snackbar
-                open={snackbarOpen}
-                autoHideDuration={2000}
-                onClose={() => setSnackbarOpen(false)}
-                message="Copied!"
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-              />
-
-              <IconButton onClick={() => setShowEmojiPicker((prev) => !prev)}>
-                <InsertEmoticonIcon sx={{ fontSize: isMobile ? '20px' : '22px' }} />
-              </IconButton>
-
-              {showEmojiPicker && (
-                <ClickAwayListener onClickAway={() => setShowEmojiPicker(false)}>
-                  <Box sx={{ position: 'absolute', zIndex: 10, top: 160, right: 20 }}>
-                    <Picker
-                      data={data}
-                      onEmojiSelect={(emoji) => {
-                        const currentText = composerText || "";
-                        const emojiChar = emoji.native;
-                        const before = currentText.slice(0, cursorPos);
-                        const after = currentText.slice(cursorPos);
-                        const newText = before + emojiChar + after;
-                        setComposerText(newText);
-                        setEditedText(newText);
-                        requestAnimationFrame(() => {
-                          if (inputRef.current) {
-                            inputRef.current.focus();
-                            const newPos = (cursorPos || 0) + emojiChar.length;
-                            inputRef.current.setSelectionRange(newPos, newPos);
-                            setCursorPos(newPos);
-                          }
-                        });
-                        setShowEmojiPicker(false);
-                      }}
-                    />
-                  </Box>
-                </ClickAwayListener>
-              )}
-
-              <IconButton component="label">
-                <ImageIcon sx={{ fontSize: isMobile ? '20px' : '22px' }} />
-                <input
-  type="file"
-  hidden
-  accept="image/png, image/jpeg, image/jpg"
-  onChange={(e) => {
-    handleImageSelect(e);
-    e.target.value = null; // allow re-selecting same file
-  }}
-/>
-              </IconButton>
-
-              {(composerText?.length || 0) > 0 && (
-                <Typography
-                  sx={{ ml: "auto", fontSize: isMobile ? '12px' : '14px', fontWeight: 400 }}
-                  variant="body2"
-                  color={(composerText?.length || 0) > CHARACTER_LIMIT ? 'error' : 'text.secondary'}
+            {/* Header */}
+            <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
+              <Avatar src={profilePicture} />
+              <Stack>
+                <Typography sx={{ fontSize: '18px', fontWeight: 500 }}>{userName}</Typography>
+                <Stack
+                  sx={{ display: 'flex', flexDirection: 'row', gap: 1, alignItems: 'center', cursor: 'pointer' }}
+                  onClick={() => setSettingsOpen(true)}
                 >
-                  {(composerText?.length || 0)} / {CHARACTER_LIMIT} characters
-                </Typography>
-              )}
+                  <Typography sx={{ fontSize: '14px', fontWeight: 400, color: 'grey' }}>
+                    Post to {postVisibility === "anyone" ? "Anyone" : "Connections only"}
+                  </Typography>
+                  <ArrowDropDownOutlinedIcon />
+                </Stack>
+              </Stack>
             </Box>
 
-            <Stack direction="row" spacing={2} justifyContent="flex-end" mt={1}>
-              <CustomTooltip placement="left" title={(composerText?.length || 0) > CHARACTER_LIMIT ? "Exceeded characters" : "Schedule for later"}>
-                <Box
-                  onClick={() => {
-                    if ((composerText?.trim?.() || "") && (composerText.length <= CHARACTER_LIMIT)) {
-                      setScheduleOpen(true);
-                    }
-                  }}
-                  sx={{
-                    background: (composerText?.trim?.() === '' || (composerText?.length || 0) > CHARACTER_LIMIT) ? '#C4C4C4' : '#093FB4',
-                    borderRadius: '4px',
-                    px: 1,
-                    py: 0.7,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: '#FFFFFF',
-                    cursor: (composerText?.trim?.() === '' || (composerText?.length || 0) > CHARACTER_LIMIT) ? 'not-allowed' : 'pointer',
-                    pointerEvents: (composerText?.trim?.() === '' || (composerText?.length || 0) > CHARACTER_LIMIT) ? 'none' : 'auto',
-                    '&:hover': { background: (composerText?.trim?.() === '' || (composerText?.length || 0) > CHARACTER_LIMIT) ? '#C4C4C4' : '#004030' },
-                  }}
-                >
-                  <CalendarMonthIcon />
-                </Box>
-              </CustomTooltip>
+            {/* Editor */}
+            <TextField
+              inputRef={inputRef}
+              multiline
+              minRows={8}
+              fullWidth
+              placeholder="Write your post..."
+              value={composerText}
+              onChange={(e) => {
+                const val = e.target.value;
+                setComposerText(val);
+                setEditedText(val);
+              }}
+              onSelect={(e) => {
+                const target = e.target;
+                setCursorPos(target.selectionStart || 0);
+              }}
+            />
 
-              <CustomTooltip placement="left" title={(composerText?.length || 0) > CHARACTER_LIMIT ? "Exceeded characters" : ""}>
+            {/* Image preview */}
+            {previewUrl && (
+              <Box sx={{ mt: 2 }}>
                 <Box
-                  onClick={() => {
-                    if ((composerText?.trim?.() || "") && (composerText.length <= CHARACTER_LIMIT)) {
-                      handlePublish(); // uses editedText (kept in sync)
-                    }
-                  }}
                   sx={{
-                    background: (composerText?.trim?.() === '' || (composerText?.length || 0) > CHARACTER_LIMIT) ? '#C4C4C4' : '#093FB4',
-                    borderRadius: '26px',
-                    px: 3,
-                    py: 0.7,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: '#FFFFFF',
-                    cursor: (composerText?.trim?.() === '' || (composerText?.length || 0) > CHARACTER_LIMIT) ? 'not-allowed' : 'pointer',
-                    pointerEvents: (composerText?.trim?.() === '' || (composerText?.length || 0) > CHARACTER_LIMIT) ? 'none' : 'auto',
-                    '&:hover': { background: (composerText?.trim?.() === '' || (composerText?.length || 0) > CHARACTER_LIMIT) ? '#C4C4C4' : '#004030' },
+                    position: 'relative',
+                    border: '1px solid #eee',
+                    borderRadius: 2,
+                    p: 1,
+                    bgcolor: '#fafafa',
                   }}
                 >
-                  <Typography sx={{ fontSize: isMobile ? '14px' : '16px' }}>Publish</Typography>
+                  <img
+                    src={previewUrl}
+                    alt="Selected"
+                    style={{
+                      width: '100%',
+                      maxHeight: isMobile ? 260 : 420,
+                      objectFit: 'contain',
+                      borderRadius: 8,
+                      display: 'block',
+                    }}
+                  />
+                  <IconButton
+                    size="small"
+                    onClick={clearSelectedImage}
+                    sx={{ position: 'absolute', top: 6, right: 6, bgcolor: 'white' }}
+                    aria-label="Remove image"
+                  >
+                    <CloseIcon fontSize="small" />
+                  </IconButton>
                 </Box>
-              </CustomTooltip>
-            </Stack>
-          </Box>
-        </DialogContent>
-      </Dialog>
+              </Box>
+            )}
+
+            {/* Bottom bar */}
+            <Box
+              sx={{
+                position: "sticky",
+                bottom: 0,
+                width: "100%",
+                backgroundColor: "#fff",
+                borderTop: "1px solid #e0e0e0",
+                px: isMobile ? 0 : 3,
+                py: isMobile ? 0.5 : 1,
+                zIndex: 5,
+                mt: 2
+              }}
+            >
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <IconButton onClick={() => handleCopy(composerText)}>
+                  <ContentCopyIcon sx={{ fontSize: isMobile ? '20px' : '22px' }} />
+                </IconButton>
+                <Snackbar
+                  open={snackbarOpen}
+                  autoHideDuration={2000}
+                  onClose={() => setSnackbarOpen(false)}
+                  message="Copied!"
+                  anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+                />
+
+                <IconButton onClick={() => setShowEmojiPicker((prev) => !prev)}>
+                  <InsertEmoticonIcon sx={{ fontSize: isMobile ? '20px' : '22px' }} />
+                </IconButton>
+
+                {showEmojiPicker && (
+                  <ClickAwayListener onClickAway={() => setShowEmojiPicker(false)}>
+                    <Box sx={{ position: 'absolute', zIndex: 10, top: 160, right: 20 }}>
+                      <Picker
+                        data={data}
+                        onEmojiSelect={(emoji) => {
+                          const currentText = composerText || "";
+                          const emojiChar = emoji.native;
+                          const before = currentText.slice(0, cursorPos);
+                          const after = currentText.slice(cursorPos);
+                          const newText = before + emojiChar + after;
+                          setComposerText(newText);
+                          setEditedText(newText);
+                          requestAnimationFrame(() => {
+                            if (inputRef.current) {
+                              inputRef.current.focus();
+                              const newPos = (cursorPos || 0) + emojiChar.length;
+                              inputRef.current.setSelectionRange(newPos, newPos);
+                              setCursorPos(newPos);
+                            }
+                          });
+                          setShowEmojiPicker(false);
+                        }}
+                      />
+                    </Box>
+                  </ClickAwayListener>
+                )}
+
+                <IconButton component="label">
+                  <ImageIcon sx={{ fontSize: isMobile ? '20px' : '22px' }} />
+                  <input
+                    type="file"
+                    hidden
+                    accept="image/*"
+                    onChange={handleImageSelect}
+                  />
+                </IconButton>
+
+                {(composerText?.length || 0) > 0 && (
+                  <Typography
+                    sx={{ ml: "auto", fontSize: isMobile ? '12px' : '14px', fontWeight: 400 }}
+                    variant="body2"
+                    color={(composerText?.length || 0) > CHARACTER_LIMIT ? 'error' : 'text.secondary'}
+                  >
+                    {(composerText?.length || 0)} / {CHARACTER_LIMIT} characters
+                  </Typography>
+                )}
+              </Box>
+
+              <Stack direction="row" spacing={2} justifyContent="flex-end" mt={1}>
+                <CustomTooltip placement="left" title={(composerText?.length || 0) > CHARACTER_LIMIT ? "Exceeded characters" : "Schedule for later"}>
+                  <Box
+                    onClick={() => {
+                      if ((composerText?.trim?.() || "") && (composerText.length <= CHARACTER_LIMIT)) {
+                        setScheduleOpen(true);
+                      }
+                    }}
+                    sx={{
+                      background: (composerText?.trim?.() === '' || (composerText?.length || 0) > CHARACTER_LIMIT) ? '#C4C4C4' : '#093FB4',
+                      borderRadius: '4px',
+                      px: 1,
+                      py: 0.7,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#FFFFFF',
+                      cursor: (composerText?.trim?.() === '' || (composerText?.length || 0) > CHARACTER_LIMIT) ? 'not-allowed' : 'pointer',
+                      pointerEvents: (composerText?.trim?.() === '' || (composerText?.length || 0) > CHARACTER_LIMIT) ? 'none' : 'auto',
+                      '&:hover': { background: (composerText?.trim?.() === '' || (composerText?.length || 0) > CHARACTER_LIMIT) ? '#C4C4C4' : '#004030' },
+                    }}
+                  >
+                    <CalendarMonthIcon />
+                  </Box>
+                </CustomTooltip>
+
+                <CustomTooltip placement="left" title={(composerText?.length || 0) > CHARACTER_LIMIT ? "Exceeded characters" : ""}>
+                  <Box
+                    onClick={() => {
+                      if ((composerText?.trim?.() || "") && (composerText.length <= CHARACTER_LIMIT)) {
+                        handlePublish();
+                      }
+                    }}
+                    sx={{
+                      background: (composerText?.trim?.() === '' || (composerText?.length || 0) > CHARACTER_LIMIT) ? '#C4C4C4' : '#093FB4',
+                      borderRadius: '26px',
+                      px: 3,
+                      py: 0.7,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#FFFFFF',
+                      cursor: (composerText?.trim?.() === '' || (composerText?.length || 0) > CHARACTER_LIMIT) ? 'not-allowed' : 'pointer',
+                      pointerEvents: (composerText?.trim?.() === '' || (composerText?.length || 0) > CHARACTER_LIMIT) ? 'none' : 'auto',
+                      '&:hover': { background: (composerText?.trim?.() === '' || (composerText?.length || 0) > CHARACTER_LIMIT) ? '#C4C4C4' : '#004030' },
+                    }}
+                  >
+                    <Typography sx={{ fontSize: isMobile ? '14px' : '16px' }}>Publish</Typography>
+                  </Box>
+                </CustomTooltip>
+              </Stack>
+            </Box>
+          </DialogContent>
+        </Dialog>
       )}
 
       <style>{`
