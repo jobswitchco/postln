@@ -1168,88 +1168,88 @@ router.get("/get-user-name-image", authenticateToken, async (req, res) => {
 });
 
 
-const sanitizeInput = async (text) => {
-  return text
-    .replace(/^#+\s*(.*)/gm, '$1')                          // Remove markdown headings (### Heading → Heading)
-    .replace(/^\s*[*\-+]\s+\*{2}(.*?)\*{2}[:]?/gm, '→ "$1":') // Bullet: * **Point:** → → "Point":
-    .replace(/^\s*[*\-+]\s+\*{2}(.*?)\*{2}/gm, '→ "$1"')     // Bullet: * **Point** → → "Point"
-    .replace(/^\s*[*\-+]\s+(.*)/gm, '→ $1')                  // Bullet: * Point → → Point
-    .replace(/\*{2}([^*]+)\*{2}/g, '"$1"')                   // **bold** → "bold"
-    .replace(/\*([^*]+)\*/g, '"$1"')                         // *italic* → "italic"
-    .replace(/`([^`]+)`/g, '"$1"')                           // `inline` → "inline"
-    .replace(/\*/g, '')                                      // Remove stray *
-    .replace(/\n{3,}/g, '\n\n')                              // Normalize breaks
-    .trim();
-};
+// const sanitizeInput = async (text) => {
+//   return text
+//     .replace(/^#+\s*(.*)/gm, '$1')                          // Remove markdown headings (### Heading → Heading)
+//     .replace(/^\s*[*\-+]\s+\*{2}(.*?)\*{2}[:]?/gm, '→ "$1":') // Bullet: * **Point:** → → "Point":
+//     .replace(/^\s*[*\-+]\s+\*{2}(.*?)\*{2}/gm, '→ "$1"')     // Bullet: * **Point** → → "Point"
+//     .replace(/^\s*[*\-+]\s+(.*)/gm, '→ $1')                  // Bullet: * Point → → Point
+//     .replace(/\*{2}([^*]+)\*{2}/g, '"$1"')                   // **bold** → "bold"
+//     .replace(/\*([^*]+)\*/g, '"$1"')                         // *italic* → "italic"
+//     .replace(/`([^`]+)`/g, '"$1"')                           // `inline` → "inline"
+//     .replace(/\*/g, '')                                      // Remove stray *
+//     .replace(/\n{3,}/g, '\n\n')                              // Normalize breaks
+//     .trim();
+// };
 
 
 
 
-export async function generateLinkedInPost(article, modelId) {
-  if (!article || !modelId) {
-    throw new Error("Both article and modelId are required.");
-  }
+// export async function generateLinkedInPost(article, modelId) {
+//   if (!article || !modelId) {
+//     throw new Error("Both article and modelId are required.");
+//   }
 
-  const messages = [
-    {
-      role: "system",
-      content: `"You are my LinkedIn Ghostwriter trained on my style. Your job is to *faithfully represent the article's or draft's key points*, while expressing them in my unique tone — which may include emojis, questions, short paragraphs, or strong closings. You transform inputs into my voice and structure — while keeping original facts, characters, and quotes untouched. You NEVER change the subject's gender or invent details. Preserve the language(ex: if draft is given in english then output post should be in english language only), And most importantly, do not return asterisks(*) anywhere in the post."
-`,
-    },
-
-
-{
-  role: "user",
-  content: `Rewrite the following article into a LinkedIn post that reflects my tone and storytelling style.
-
-Keep it engaging, slightly informal, and personalized — but make sure the key insights from the article are **preserved clearly**.
-
-Avoid copying the article directly, but don't go off-topic either. The goal is to **explain the same ideas in my style**.\n\n"${article}"`
-}
+//   const messages = [
+//     {
+//       role: "system",
+//       content: `"You are my LinkedIn Ghostwriter trained on my style. Your job is to *faithfully represent the article's or draft's key points*, while expressing them in my unique tone — which may include emojis, questions, short paragraphs, or strong closings. You transform inputs into my voice and structure — while keeping original facts, characters, and quotes untouched. You NEVER change the subject's gender or invent details. Preserve the language(ex: if draft is given in english then output post should be in english language only), And most importantly, do not return asterisks(*) anywhere in the post."
+// `,
+//     },
 
 
-  ];
+// {
+//   role: "user",
+//   content: `Rewrite the following article into a LinkedIn post that reflects my tone and storytelling style.
 
-  try {
-    const generationResponse = await openai.chat.completions.create({
-      model: modelId,
-      messages,
-      temperature: 0.75,
-      max_tokens: 800,
-    });
+// Keep it engaging, slightly informal, and personalized — but make sure the key insights from the article are **preserved clearly**.
 
-    const post = generationResponse.choices[0].message.content.trim();
+// Avoid copying the article directly, but don't go off-topic either. The goal is to **explain the same ideas in my style**.\n\n"${article}"`
+// }
 
-    // Ask the same model to rate its own generated post
-    const ratingMessages = [
-      {
-        role: "system",
-        content: `You are the same fine-tuned model trained on a specific user's style. You just generated the following post based on their past writing style.`,
-      },
-      {
-        role: "user",
-        content: `Here is the post you just generated:\n\n"${post}"\n\nRate how well this matches your trained style on a scale of 1 to 10, and provide a short explanation.`,
-      },
-    ];
 
-    const ratingResponse = await openai.chat.completions.create({
-      model: modelId,
-      messages: ratingMessages,
-      temperature: 0.3,
-      max_tokens: 200,
-    });
+//   ];
 
-    const rating = ratingResponse.choices[0].message.content.trim();
+//   try {
+//     const generationResponse = await openai.chat.completions.create({
+//       model: modelId,
+//       messages,
+//       temperature: 0.75,
+//       max_tokens: 800,
+//     });
 
-    return {
-      post,
-      rating,
-    };
-  } catch (err) {
-    console.error("❌ Error generating or rating post:", err.message);
-    throw err;
-  }
-}
+//     const post = generationResponse.choices[0].message.content.trim();
+
+//     // Ask the same model to rate its own generated post
+//     const ratingMessages = [
+//       {
+//         role: "system",
+//         content: `You are the same fine-tuned model trained on a specific user's style. You just generated the following post based on their past writing style.`,
+//       },
+//       {
+//         role: "user",
+//         content: `Here is the post you just generated:\n\n"${post}"\n\nRate how well this matches your trained style on a scale of 1 to 10, and provide a short explanation.`,
+//       },
+//     ];
+
+//     const ratingResponse = await openai.chat.completions.create({
+//       model: modelId,
+//       messages: ratingMessages,
+//       temperature: 0.3,
+//       max_tokens: 200,
+//     });
+
+//     const rating = ratingResponse.choices[0].message.content.trim();
+
+//     return {
+//       post,
+//       rating,
+//     };
+//   } catch (err) {
+//     console.error("❌ Error generating or rating post:", err.message);
+//     throw err;
+//   }
+// }
 
 // fine_tune_id: ftjob-bVeBcCJ9czgmd5PGGKUpnvwW
 
@@ -1286,40 +1286,269 @@ router.post('/transcribe-whisper', async (req, res) => {
 });
 
 
+// ---------- Retry helpers ----------
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+async function withRetry(fn, { retries = 5, baseDelay = 500 } = {}) {
+  let attempt = 0;
+  // 0.5s, 1s, 2s, 4s, 8s backoff
+  while (true) {
+    try {
+      return await fn();
+    } catch (err) {
+      attempt++;
+      const status = err?.status || err?.response?.status;
+      const retryable = status === 429 || status === 503 || status === 500;
+      if (retryable && attempt <= retries) {
+        const delay = baseDelay * Math.pow(2, attempt - 1);
+        console.warn(`OpenAI retry ${attempt}/${retries} after ${delay}ms (status ${status})`);
+        await sleep(delay);
+        continue;
+      }
+      throw err;
+    }
+  }
+}
+
+// ---------- Style prompt & enforcement ----------
+const EMOJI_RE = /\p{Extended_Pictographic}/gu;
+const KNOWN_BULLETS = ['✅','❌','✔️','✖️','•','-','–','➤','▫️','▪️','→','➔','☑️','☐'];
+const BOLD_UNICODE_RE = /[\u{1D400}-\u{1D7FF}]/u;
+
+function wordsCount(text) {
+  const m = String(text || '').trim().match(/\b\w+\b/g);
+  return m ? m.length : 0;
+}
+function escapeRegex(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function buildSystemPromptFromProfile(profile = {}) {
+  const {
+    topEmojis = [],
+    topBullets = [],
+    preferredNumbering = 'plain-digits', // 'bold-digits' | 'plain-digits' | 'none'
+    useBoldUnicodeHeaders = false,
+    maxEmojisPer100 = 0,
+  } = profile;
+
+  const numberingRule =
+    preferredNumbering === 'bold-digits'
+      ? 'When using numbered lists, prefer bold Unicode digits like 𝟏., 𝟐., 𝟑. (do not use 1.).'
+      : (preferredNumbering === 'plain-digits'
+          ? 'When using numbered lists, prefer plain digits like 1., 2., 3. (do not use 𝟏.).'
+          : 'Avoid numbered lists unless the draft clearly implies steps or sequencing.');
+
+  const emojiRule =
+    topEmojis.length
+      ? `Use emojis only from this whitelist: ${topEmojis.join(' ')}. Do NOT introduce other emojis.`
+      : 'Avoid emojis altogether unless absolutely necessary.';
+
+  const bulletRule =
+    topBullets.length
+      ? `When using bullets, prefer these markers: ${topBullets.join(' ')}.`
+      : 'Avoid bullet markers unless clearly implied by the draft.';
+
+  const boldHeaderRule =
+    useBoldUnicodeHeaders
+      ? 'Prefer bold Unicode headers (e.g., 𝐇𝐞𝐚𝐝𝐞𝐫) when opening sections.'
+      : 'Do not use bold Unicode headers unless the writer consistently does so.';
+
+  const densityRule = `Keep emoji density ≤ ${maxEmojisPer100} per 100 words.`;
+
+  return [
+    "You rewrite neutral drafts into the user's exact LinkedIn style.",
+    'Hard style rules:',
+    `- ${numberingRule}`,
+    `- ${bulletRule}`,
+    `- ${emojiRule}`,
+    `- ${boldHeaderRule}`,
+    `- ${densityRule}`,
+    '- Avoid decorative hype emojis (🚀🔥🌟) unless in whitelist.',
+    '- Keep structure tight and professional; match the user’s typical formatting.',
+  ].join('\n');
+}
+
+function enforceStyle(text, profile = {}) {
+  if (!text) return text;
+  const {
+    topEmojis = [],
+    topBullets = [],
+    preferredNumbering = 'plain-digits',
+    maxEmojisPer100 = 0,
+  } = profile;
+
+  let out = text;
+
+  // 1) Remove non-whitelisted emojis
+  out = out.replace(EMOJI_RE, m => (topEmojis.includes(m) ? m : ''));
+
+  // 2) Normalize bullets to preferred (first bullet), if any
+  if (topBullets.length > 0) {
+    const preferred = topBullets[0];
+    const anyBulletStart = new RegExp(
+      `^\\s*(${KNOWN_BULLETS.map(b => escapeRegex(b)).join('|')})\\s+`, 'gm'
+    );
+    out = out.replace(anyBulletStart, `${preferred} `);
+  }
+
+  // 3) Normalize numbering style
+  if (preferredNumbering === 'bold-digits') {
+    // turn "1." to "𝟏."
+    out = out.replace(/(^|\n)\s*(\d+)\./g, (m, p1, num) => {
+      const map = {'0':'𝟎','1':'𝟏','2':'𝟐','3':'𝟑','4':'𝟒','5':'𝟓','6':'𝟔','7':'𝟕','8':'𝟖','9':'𝟗'};
+      const bold = String(num).split('').map(d => map[d] || d).join('');
+      return `${p1}${bold}.`;
+    });
+  } else if (preferredNumbering === 'plain-digits') {
+    // turn "𝟏." etc to "1."
+    out = out.replace(/([𝟎𝟏𝟐𝟑𝟒𝟓𝟔𝟕𝟖𝟗]+)\./g, (m, seq) => {
+      const map = {'𝟎':'0','𝟏':'1','𝟐':'2','𝟑':'3','𝟒':'4','𝟓':'5','𝟔':'6','𝟕':'7','𝟖':'8','𝟗':'9'};
+      const plain = seq.split('').map(d => map[d] || d).join('');
+      return `${plain}.`;
+    });
+  }
+
+  // 4) Cap emoji density
+  const w = wordsCount(out) || 1;
+  const maxAllowed = Math.floor((maxEmojisPer100 * w) / 100);
+  if (maxAllowed >= 0) {
+    let count = 0;
+    out = out.replace(EMOJI_RE, (m) => {
+      if (count < maxAllowed && topEmojis.includes(m)) {
+        count++;
+        return m;
+      }
+      return ''; // drop extra emojis
+    });
+  }
+
+  // Clean whitespace from removals
+  out = out.replace(/[ \t]+\n/g, '\n').trim();
+  return out;
+}
+
+// ---------- Public API ----------
+/**
+ * Generate a LinkedIn post in the user's exact style.
+ * @param {string} article - raw draft/article text
+ * @param {string} modelId - fine-tuned model id (fallbacks to env if missing)
+ * @param {object} styleProfile - user's saved style_profile (emoji whitelist, bullets, numbering, etc.)
+ * @returns {Promise<{post: string}>}
+ */
+async function generateLinkedInPost(article, modelId, styleProfile = {}) {
+  if (!article) throw new Error('article is required.');
+  const model = modelId || process.env.FALLBACK_MODEL || 'gpt-4o-mini';
+
+  const styleSystem = buildSystemPromptFromProfile(styleProfile);
+
+  const messages = [
+    {
+      role: 'system',
+      content:
+`${styleSystem}
+
+Additional hard rules:
+- You are my LinkedIn Ghostwriter trained on my style.
+- Faithfully represent the article's/draft's key points; do not invent facts or change entities.
+- Preserve the input language (if draft is in English, output in English).
+- Do NOT return asterisks (*) anywhere in the post.
+- Keep quotes and numbers accurate; do not fabricate statistics.`
+    },
+    {
+      role: 'user',
+      content:
+`Rewrite the following article into a LinkedIn post that reflects my tone and storytelling style.
+
+Keep it engaging, slightly informal, and personalized — but preserve the core insights clearly.
+Do not copy verbatim, and do not go off-topic. Explain the same ideas in my style.
+
+Article/Draft:
+"""
+${article}
+"""`
+    }
+  ];
+
+  const generationResponse = await withRetry(() =>
+    openai.chat.completions.create({
+      model,
+      messages,
+      temperature: 0.65,
+      top_p: 0.95,
+      max_tokens: 800
+    })
+  );
+
+  let post = (generationResponse.choices?.[0]?.message?.content || '').trim();
+
+  // Strictly enforce the user’s style (emoji whitelist, bullets, numbering, density)
+  post = enforceStyle(post, styleProfile);
+
+  // Final safety: remove any stray asterisks
+  post = post.replace(/\*/g, '').trim();
+
+  return { post };
+}
+
+function sanitizeInput(t) {
+  return String(t || '').replace(/\u200B/g, '').replace(/\r/g, '').trim();
+}
+
 router.post('/rewrite-post', authenticateToken, async (req, res) => {
+  console.log('Hit:::::::::::::: /rewrite-post');
   const user_id = req.user?.user_id;
   const { textPost } = req.body;
 
   try {
-    const user = await USER.findById(user_id).select('fine_tuned_model credits_left');
+    // 1) Fetch user with model, credits, and style_profile
+    const user = await USER.findById(user_id)
+      .select('fine_tuned_model credits_left style_profile')
+      .lean();
+
     if (!user) {
       return res.status(200).json({ generated: false, error: 'User not found' });
     }
 
-    // ✅ Need only 1 credit for the whole request (bundle of 3 variants)
+    // 2) Credit check (bundle costs 1 credit)
     if (!user.credits_left || user.credits_left < 1) {
       return res.status(200).json({ generated: false, error: 'Insufficient credits (need at least 1)' });
     }
 
-    const postText = await sanitizeInput(textPost);
+    // 3) Validate draft
+    const postText = sanitizeInput(textPost);
+    if (!postText) {
+      return res.status(200).json({ generated: false, error: 'Empty draft' });
+    }
 
+    // 4) Model + style
     const VARIANTS = 3;
+    const model = user.fine_tuned_model || process.env.FALLBACK_MODEL || 'gpt-4o-mini';
+    const styleProfile = user.style_profile || {};
+
+    // 5) Generate N variants (generateLinkedInPost returns { post })
     const results = await Promise.allSettled(
       Array.from({ length: VARIANTS }, () =>
-        generateLinkedInPost(postText, user.fine_tuned_model)
+        generateLinkedInPost(postText, model, styleProfile)
       )
     );
 
+    // Debug logging for failures
+    const failures = results.filter(r => r.status === 'rejected').map(r => r.reason?.message || String(r.reason));
+    if (failures.length) {
+      console.warn('Some generations failed:', failures);
+    }
+
+    // 6) Pull successful strings out of { post }
     const successes = results
-      .filter(r => r.status === 'fulfilled')
-      .map(r => r.value);
+      .filter(r => r.status === 'fulfilled' && r.value && r.value.post && r.value.post.trim().length > 0)
+      .map(r => r.value.post.trim());
 
     if (successes.length === 0) {
       // ❌ Nothing generated, don't consume credit
       return res.status(200).json({ generated: false, error: 'Failed to rewrite post' });
     }
 
-    // ✅ Consume exactly ONE credit, atomically guard against race conditions
+    // 7) Atomically consume exactly ONE credit
     const updatedUser = await USER.findOneAndUpdate(
       { _id: user_id, credits_left: { $gte: 1 } },
       { $inc: { credits_left: -1 } },
@@ -1331,19 +1560,21 @@ router.post('/rewrite-post', authenticateToken, async (req, res) => {
       return res.status(200).json({ generated: false, error: 'Insufficient credits' });
     }
 
-    // (Optional) if you always want 3 results, backfill with duplicates
+    // 8) Ensure we always return 3 variants (duplicate first if fewer)
     while (successes.length < VARIANTS) successes.push(successes[0]);
 
     return res.status(200).json({
       generated: true,
-      rewrittenTexts: successes, // 1–3 variants depending on success
+      rewrittenTexts: successes, // array of strings
       credits_left: updatedUser.credits_left,
     });
   } catch (error) {
-    console.error('Rewrite error:', error);
+    console.error('Rewrite error:', error?.response?.data || error.message || error);
     return res.status(200).json({ generated: false, error: 'Failed to rewrite post' });
   }
 });
+
+
 
 
 router.post('/analyze-writing-style', authenticateToken, async (req, res) => {
