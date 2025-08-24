@@ -1285,16 +1285,12 @@ router.post('/transcribe-whisper', async (req, res) => {
   }
 });
 
-
-// ---------- Retry helpers ----------
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-async function withRetry(fn, { retries = 5, baseDelay = 500 } = {}) {
+function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+async function withRetry(fn, {retries=5, baseDelay=500} = {}) {
   let attempt = 0;
-  // 0.5s, 1s, 2s, 4s, 8s backoff
   while (true) {
-    try {
-      return await fn();
-    } catch (err) {
+    try { return await fn(); }
+    catch (err) {
       attempt++;
       const status = err?.status || err?.response?.status;
       const retryable = status === 429 || status === 503 || status === 500;
@@ -1309,18 +1305,12 @@ async function withRetry(fn, { retries = 5, baseDelay = 500 } = {}) {
   }
 }
 
-// ---------- Style prompt & enforcement ----------
+// --- style helpers (same as before) ---
 const EMOJI_RE = /\p{Extended_Pictographic}/gu;
 const KNOWN_BULLETS = ['✅','❌','✔️','✖️','•','-','–','➤','▫️','▪️','→','➔','☑️','☐'];
-const BOLD_UNICODE_RE = /[\u{1D400}-\u{1D7FF}]/u;
 
-function wordsCount(text) {
-  const m = String(text || '').trim().match(/\b\w+\b/g);
-  return m ? m.length : 0;
-}
-function escapeRegex(s) {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
+function wordsCount(text){ const m = String(text||'').trim().match(/\b\w+\b/g); return m?m.length:0; }
+function escapeRegex(s){ return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); }
 
 function buildSystemPromptFromProfile(profile = {}) {
   const {
@@ -1370,19 +1360,13 @@ function buildSystemPromptFromProfile(profile = {}) {
 
 function enforceStyle(text, profile = {}) {
   if (!text) return text;
-  const {
-    topEmojis = [],
-    topBullets = [],
-    preferredNumbering = 'plain-digits',
-    maxEmojisPer100 = 0,
-  } = profile;
-
+  const { topEmojis = [], topBullets = [], preferredNumbering = 'plain-digits', maxEmojisPer100 = 0 } = profile;
   let out = text;
 
-  // 1) Remove non-whitelisted emojis
+  // Remove non-whitelisted emojis
   out = out.replace(EMOJI_RE, m => (topEmojis.includes(m) ? m : ''));
 
-  // 2) Normalize bullets to preferred (first bullet), if any
+  // Normalize bullets to preferred
   if (topBullets.length > 0) {
     const preferred = topBullets[0];
     const anyBulletStart = new RegExp(
@@ -1391,16 +1375,14 @@ function enforceStyle(text, profile = {}) {
     out = out.replace(anyBulletStart, `${preferred} `);
   }
 
-  // 3) Normalize numbering style
+  // Normalize numbering style
   if (preferredNumbering === 'bold-digits') {
-    // turn "1." to "𝟏."
     out = out.replace(/(^|\n)\s*(\d+)\./g, (m, p1, num) => {
       const map = {'0':'𝟎','1':'𝟏','2':'𝟐','3':'𝟑','4':'𝟒','5':'𝟓','6':'𝟔','7':'𝟕','8':'𝟖','9':'𝟗'};
       const bold = String(num).split('').map(d => map[d] || d).join('');
       return `${p1}${bold}.`;
     });
   } else if (preferredNumbering === 'plain-digits') {
-    // turn "𝟏." etc to "1."
     out = out.replace(/([𝟎𝟏𝟐𝟑𝟒𝟓𝟔𝟕𝟖𝟗]+)\./g, (m, seq) => {
       const map = {'𝟎':'0','𝟏':'1','𝟐':'2','𝟑':'3','𝟒':'4','𝟓':'5','𝟔':'6','𝟕':'7','𝟖':'8','𝟗':'9'};
       const plain = seq.split('').map(d => map[d] || d).join('');
@@ -1408,37 +1390,72 @@ function enforceStyle(text, profile = {}) {
     });
   }
 
-  // 4) Cap emoji density
+  // Cap emoji density
   const w = wordsCount(out) || 1;
   const maxAllowed = Math.floor((maxEmojisPer100 * w) / 100);
   if (maxAllowed >= 0) {
     let count = 0;
     out = out.replace(EMOJI_RE, (m) => {
       if (count < maxAllowed && topEmojis.includes(m)) {
-        count++;
-        return m;
+        count++; return m;
       }
-      return ''; // drop extra emojis
+      return '';
     });
   }
 
-  // Clean whitespace from removals
-  out = out.replace(/[ \t]+\n/g, '\n').trim();
-  return out;
+  return out.replace(/[ \t]+\n/g, '\n').trim();
 }
 
-// ---------- Public API ----------
+// --- core: call with auto-continuation when finish_reason === 'length' ---
+async function generateWithContinuation({ model, messages, temperature = 0.65, top_p = 0.95, max_tokens = 900, maxRuns = 4 }) {
+  let full = '';
+  let runs = 0;
+  let lastFinish = null;
+
+  // Copy the base conversation so we can append
+  const convo = JSON.parse(JSON.stringify(messages));
+
+  while (runs < maxRuns) {
+    runs++;
+    const resp = await withRetry(() =>
+      openai.chat.completions.create({
+        model,
+        messages: convo,
+        temperature,
+        top_p,
+        max_tokens
+      })
+    );
+
+    const choice = resp.choices?.[0];
+    const text = (choice?.message?.content || '').trim();
+    const finish = choice?.finish_reason || null;
+    lastFinish = finish;
+
+    if (text) full += (full ? '\n' : '') + text;
+
+    if (finish !== 'length') break; // completed naturally
+
+    // Ask it to continue *exactly* from last character if it was cut
+    convo.push({ role: 'assistant', content: text });
+    convo.push({
+      role: 'user',
+      content: 'Continue exactly from where you stopped. Do not repeat previous lines.'
+    });
+
+    // tiny pause to smooth rate
+    await sleep(150);
+  }
+
+  return { text: full.trim(), finish_reason: lastFinish };
+}
+
 /**
- * Generate a LinkedIn post in the user's exact style.
- * @param {string} article - raw draft/article text
- * @param {string} modelId - fine-tuned model id (fallbacks to env if missing)
- * @param {object} styleProfile - user's saved style_profile (emoji whitelist, bullets, numbering, etc.)
- * @returns {Promise<{post: string}>}
+ * Generate a LinkedIn post in the user's style, with continuation handling.
  */
 async function generateLinkedInPost(article, modelId, styleProfile = {}) {
   if (!article) throw new Error('article is required.');
   const model = modelId || process.env.FALLBACK_MODEL || 'gpt-4o-mini';
-
   const styleSystem = buildSystemPromptFromProfile(styleProfile);
 
   const messages = [
@@ -1469,30 +1486,113 @@ ${article}
     }
   ];
 
-  const generationResponse = await withRetry(() =>
-    openai.chat.completions.create({
-      model,
-      messages,
-      temperature: 0.65,
-      top_p: 0.95,
-      max_tokens: 800
-    })
-  );
+  // Generate with auto-continue if cut for length
+  const { text, finish_reason } = await generateWithContinuation({
+    model,
+    messages,
+    temperature: 0.65,
+    top_p: 0.95,
+    max_tokens: 900,   // a bit larger than before
+    maxRuns: 4         // continue up to 3 times if needed
+  });
 
-  let post = (generationResponse.choices?.[0]?.message?.content || '').trim();
-
-  // Strictly enforce the user’s style (emoji whitelist, bullets, numbering, density)
+  let post = text || '';
   post = enforceStyle(post, styleProfile);
-
-  // Final safety: remove any stray asterisks
+  post = sanitizeOutput(post);
   post = post.replace(/\*/g, '').trim();
 
-  return { post };
+  return { post, finish_reason };
 }
 
-function sanitizeInput(t) {
-  return String(t || '').replace(/\u200B/g, '').replace(/\r/g, '').trim();
+
+
+
+// utils/sanitize.js
+
+// Map ASCII letters/digits to Mathematical Bold Unicode (𝐀..𝐙 𝐚..𝐳 𝟎..𝟗)
+function toBoldUnicode(str = '') {
+  const A = 'A'.charCodeAt(0), a = 'a'.charCodeAt(0), zero = '0'.charCodeAt(0);
+  const boldA = 0x1D400, bolda = 0x1D41A, bold0 = 0x1D7CE;
+
+  return Array.from(str).map(ch => {
+    const code = ch.codePointAt(0);
+    if (code >= A && code <= A + 25) {
+      return String.fromCodePoint(boldA + (code - A));
+    } else if (code >= a && code <= a + 25) {
+      return String.fromCodePoint(bolda + (code - a));
+    } else if (code >= zero && code <= zero + 9) {
+      return String.fromCodePoint(bold0 + (code - zero));
+    }
+    return ch; // leave punctuation, spaces, emojis, etc.
+  }).join('');
 }
+
+/**
+ * Convert Markdown headings (#, ##, ###, ...) to bold Unicode headers,
+ * strip code fences/backticks, normalize whitespace, and remove zero-width chars.
+ */
+function sanitizeInput(text) {
+  let t = String(text || '');
+
+  // Remove zero-width chars and carriage returns
+  t = t.replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/\r/g, '');
+
+  // Strip fenced code blocks ``` ... ```
+  t = t.replace(/```[\s\S]*?```/g, '');
+
+  // Strip inline code `...`
+  t = t.replace(/`([^`]+)`/g, '$1');
+
+  // Normalize Windows newlines
+  t = t.replace(/\r\n/g, '\n');
+
+  // Collapse >2 blank lines to just 2
+  t = t.replace(/\n{3,}/g, '\n\n');
+
+  // Trim trailing spaces on each line
+  t = t.replace(/[ \t]+$/gm, '');
+
+  // Convert Markdown headings to bold Unicode headers
+  // Matches lines starting with 1–6 hashes: ### Title
+  t = t.replace(/^(#{1,6})\s+(.+)$/gm, (_, hashes, title) => {
+    // Clean title of trailing hashes (e.g., "### Title ###")
+    const cleaned = title.replace(/\s*#+\s*$/, '').trim();
+    const bold = toBoldUnicode(cleaned);
+    return bold; // no hashes, just the bold header line
+  });
+
+  // Remove leftover Markdown emphasis markers **__*_
+  t = t.replace(/(\*\*|__|\*|_)(.*?)\1/g, '$2');
+
+  // Normalize list bullets from Markdown to plain ones; your style layer will fix them later
+  // e.g., "- Item" or "* Item" -> "- Item"
+  t = t.replace(/^\s*([*-])\s+/gm, '- ');
+
+  // Collapse multiple spaces
+  t = t.replace(/[ \t]{2,}/g, ' ');
+
+  // Final trim
+  t = t.trim();
+
+  return t;
+}
+
+/**
+ * Optional: light cleanup on the model’s output
+ * - strip stray code ticks/asterisks
+ * - ensure no Markdown hashes leaked back
+ */
+function sanitizeOutput(text) {
+  let t = String(text || '');
+  t = t.replace(/```[\s\S]*?```/g, '');
+  t = t.replace(/`([^`]+)`/g, '$1');
+  t = t.replace(/\*/g, '');         // you already disallow asterisks
+  t = t.replace(/^#{1,6}\s+/gm, ''); // strip any leftover Markdown headings
+  t = t.replace(/[ \t]+\n/g, '\n').trim();
+  return t;
+}
+
+
 
 router.post('/rewrite-post', authenticateToken, async (req, res) => {
   console.log('Hit:::::::::::::: /rewrite-post');
@@ -1573,8 +1673,6 @@ router.post('/rewrite-post', authenticateToken, async (req, res) => {
     return res.status(200).json({ generated: false, error: 'Failed to rewrite post' });
   }
 });
-
-
 
 
 router.post('/analyze-writing-style', authenticateToken, async (req, res) => {
