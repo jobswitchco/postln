@@ -85,6 +85,20 @@ export default function Footer() {
               About Us
             </a>
           </Typography>
+
+             <Typography
+            variant="body2"
+            sx={{
+              color: "#ccc",
+              mb: 1,
+              transition: "color 0.3s",
+              "&:hover": { color: "#f2f2f2" },
+            }}
+          >
+            <a href="/contact" style={linkStyle}>
+             Contact Us
+            </a>
+          </Typography>
           
           <Typography
             variant="body2"
@@ -115,6 +129,19 @@ export default function Footer() {
             Useful
           </Typography>
           <Typography
+            variant="body2"
+            sx={{
+              color: "#ccc",
+              mb: 1,
+              transition: "color 0.3s",
+              "&:hover": { color: "#f2f2f2" },
+            }}
+          >
+            <a href="/linkedin-text-formatter" style={linkStyle}>
+               Linkedin Text Formatter [Free]
+            </a>
+          </Typography>
+            <Typography
             variant="body2"
             sx={{
               color: "#ccc",
@@ -168,20 +195,6 @@ export default function Footer() {
             </a>
           </Typography>
 
-           <Typography
-            variant="body2"
-            sx={{
-              color: "#ccc",
-              mb: 1,
-              transition: "color 0.3s",
-              "&:hover": { color: "#f2f2f2" },
-            }}
-          >
-            <a href="/contact" style={linkStyle}>
-             Contact Us
-            </a>
-          </Typography>
-
           <Typography
             variant="body2"
             sx={{
@@ -213,7 +226,7 @@ export default function Footer() {
           <Box display="flex" justifyContent="flex-start" gap={2}>
            
             <IconButton
-              href="https://www.linkedin.com/company/postln/"
+              href="https://www.linkedin.com/company/postln"
               target="_blank"
               color="inherit"
               sx={{ "&:hover": { color: "#E4405F" } }}

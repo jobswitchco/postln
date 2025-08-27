@@ -51,7 +51,7 @@ function App() {
            <GoogleAnalytics />
             <Routes>
               <Route path="/" element={<LandingPage />} />
-              <Route path="/linkedin-post-composer" element={<FreePostComposer />} />
+              <Route path="/linkedin-text-formatter" element={<FreePostComposer />} />
               <Route path="/post-composer" element={<PostComposer />} />
               <Route path="/signin/linkedin" element={<LinkedinSignIn />} />
               <Route path="/auth/linkedin/callback" element={<LinkedInCode/>}/>
