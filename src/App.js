@@ -37,6 +37,7 @@ import PostComposer from './components/Employee/PostComposer.js';
 import CategorySelector from './components/Employee/CategorySelector.js';
 import MyPosts from './components/Employee/MyPosts.js';
 import LinkedInStyleAnalyzer from './components/Employee/LinkedInStyleAnalyzer.js';
+import FreePostComposer from './components/FreePostComposer.js';
 
 
 
@@ -50,6 +51,7 @@ function App() {
            <GoogleAnalytics />
             <Routes>
               <Route path="/" element={<LandingPage />} />
+              <Route path="/linkedin-post-composer" element={<FreePostComposer />} />
               <Route path="/post-composer" element={<PostComposer />} />
               <Route path="/signin/linkedin" element={<LinkedinSignIn />} />
               <Route path="/auth/linkedin/callback" element={<LinkedInCode/>}/>

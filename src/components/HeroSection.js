@@ -37,15 +37,6 @@ export default function HeroSection() {
             margin-bottom: 1rem;
           }
 
-          .hero-heading {
-            font-family: Inter, sans-serif;
-            font-weight: 700;
-            text-align: center;
-            color: #111;
-            line-height: 1.2;
-            padding: 0 1rem;
-            font-size: 2rem;
-          }
 
           .hero-heading span {
             background: linear-gradient(to right, #0a66c2, #5600ecff);
@@ -126,9 +117,16 @@ export default function HeroSection() {
 
           /* Responsive media styles */
           @media (min-width: 768px) {
+
             .hero-heading {
+            font-family: Inter, sans-serif;
+            font-weight: 700;
               font-size: 3.2rem;
-            }
+            text-align: center;
+            color: #111;
+            line-height: 1.2;
+            padding: 0 12rem;
+          }
 
             .hero-subtext {
               font-size: 1.25rem;
@@ -152,9 +150,18 @@ export default function HeroSection() {
           }
 
            @media (max-width: 768px) {
-            .hero-heading {
+            
+
+             .hero-heading {
+            font-family: Inter, sans-serif;
+            font-weight: 700;
               font-size: 2.2rem;
-            }
+            text-align: center;
+            color: #111;
+            line-height: 1.2;
+            padding: 0 2rem;
+          }
+
 
             
            .hero-heading-bottom {
@@ -200,12 +207,12 @@ export default function HeroSection() {
 
         {/* Title */}
         <h1 className="hero-heading">
-          Your <span1>LinkedIn </span1>AI That Writes <span>Like You.</span>
+          <span1>LinkedIn</span1> posts sounds like you. Never like<span> AI.</span>
         </h1>
 
         {/* Subtitle */}
         <p className="hero-subtext">
-          PostLn transforms your drafts into LinkedIn posts that match your voice, tone, and storytelling style — not someone else's.
+          Oops! Not another AI tool. PostLn sounds like you, writes like you, and keeps your authenticity intact.
         </p>
 
         {/* Buttons */}
