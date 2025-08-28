@@ -1,27 +1,50 @@
-import { useEffect } from 'react';
 import Navbar from './Navbar';
 import Footer from './Footer';
 import { Container, Typography, Grid, Paper, Divider, Link } from '@mui/material';
 import { LocationOn } from '@mui/icons-material';
+  import { Helmet } from "react-helmet";
+
 
 function SupportContact() {
-  useEffect(() => {
-    window.dataLayer = window.dataLayer || [];
-    function gtag() {
-      window.dataLayer.push(arguments);
-    }
-    gtag('js', new Date());
-    gtag('config', 'G-FR7630J1YJ');
-  }, []);
+
 
   return (
     <>
-      <header>
-        <title>Contact Us | PostLn</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" href="/favicon.ico" />
-        <script async src="https://www.googletagmanager.com/gtag/js?id=G-FR7630J1YJ"></script>
-      </header>
+     <Helmet>
+  <title>Contact Us & Support | PostLn</title>
+  <meta
+    name="description"
+    content="Get in touch with PostLn. Reach our support team at support@postln.com, sales inquiries at sales@postln.com, or visit our Hyderabad office. We're here to help you."
+  />
+
+  {/* Canonical URL */}
+  <link rel="canonical" href="https://www.postln.com/contact" />
+
+  {/* Open Graph */}
+  <meta property="og:title" content="Contact Us & Support | PostLn" />
+  <meta
+    property="og:description"
+    content="Need help or have questions? Contact PostLn support at support@postln.com, sales@postln.com, or visit our Hyderabad office."
+  />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://www.postln.com/contact" />
+  <meta
+    property="og:image"
+    content="https://storage.googleapis.com/postlnbucketcom/logo_512x512-removebg-preview.png"
+  />
+
+  {/* Twitter */}
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Contact Us & Support | PostLn" />
+  <meta
+    name="twitter:description"
+    content="Get support from PostLn: email support@postln.com, sales@postln.com, or visit our Hyderabad office."
+  />
+  <meta
+    name="twitter:image"
+    content="https://storage.googleapis.com/postlnbucketcom/logo_512x512-removebg-preview.png"
+  />
+</Helmet>
 
       <Navbar />
 

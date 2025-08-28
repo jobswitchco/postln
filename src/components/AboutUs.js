@@ -4,12 +4,51 @@ import Footer from './Footer';
 import CodeIcon from '@mui/icons-material/Code';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import EmojiObjectsIcon from '@mui/icons-material/EmojiObjects';
+import { Helmet } from "react-helmet";
+
 
 const AboutUs = () => {
   const isMobile = useMediaQuery('(max-width:600px)');
 
   return (
     <>
+
+    <Helmet>
+  <title>About Us | PostLn</title>
+  <meta
+    name="description"
+    content="Discover the story behind PostLn — an AI-powered LinkedIn post generator built to sound like you, not like AI. Learn about our mission, creator-first design, and commitment to authentic content."
+  />
+
+  {/* Canonical URL */}
+  <link rel="canonical" href="https://www.postln.com/about-us" />
+
+  {/* Open Graph */}
+  <meta property="og:title" content="About Us | PostLn" />
+  <meta
+    property="og:description"
+    content="PostLn was built to help founders, creators, and professionals write authentic LinkedIn posts. Learn how we craft AI tools that enhance your voice, not replace it."
+  />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://www.postln.com/about-us" />
+  <meta
+    property="og:image"
+    content="https://storage.googleapis.com/postlnbucketcom/logo_512x512-removebg-preview.png"
+  />
+
+  {/* Twitter */}
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="About Us | PostLn" />
+  <meta
+    name="twitter:description"
+    content="Meet PostLn: the AI tool designed to help professionals sound authentic on LinkedIn. Learn about our creator-first approach and human-centered mission."
+  />
+  <meta
+    name="twitter:image"
+    content="https://storage.googleapis.com/postlnbucketcom/logo_512x512-removebg-preview.png"
+  />
+</Helmet>
+
       <Navbar />
       <Box sx={{ padding: isMobile ? 3 : 8, mt: 10 }}>
         <Typography sx={{ fontWeight: 600, fontSize: isMobile ? '32px' : '36px', mb: 2 }}>

@@ -18,6 +18,8 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import logo from "../../images/postln_logo.svg";
 import { toast } from "react-toastify";
 import LinkedInIcon from '@mui/icons-material/LinkedIn';
+import { Helmet } from "react-helmet";
+
 
 
 
@@ -104,6 +106,47 @@ function LinkedInUserLogin() {
   return (
     <>
 {/* <Grid container spacing='2'> */}
+
+
+<Helmet>
+  <title>Log In to PostLn | Continue with LinkedIn</title>
+  <meta
+    name="description"
+    content="Sign in to PostLn with your LinkedIn account to create AI-powered LinkedIn posts in your voice, schedule content, and grow your audience."
+  />
+
+  {/* Do not index login pages */}
+  <meta name="robots" content="noindex, nofollow" />
+
+  {/* Canonical */}
+  <link rel="canonical" href="https://www.postln.com/professional/login" />
+
+  {/* Open Graph */}
+  <meta property="og:title" content="Log In to PostLn | Continue with LinkedIn" />
+  <meta
+    property="og:description"
+    content="Use your LinkedIn account to access PostLn and craft authentic posts in minutes."
+  />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://www.postln.com/professional/login" />
+  <meta
+    property="og:image"
+    content="https://storage.googleapis.com/postlnbucketcom/logo_512x512-removebg-preview.png"
+  />
+
+  {/* Twitter */}
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Log In to PostLn | Continue with LinkedIn" />
+  <meta
+    name="twitter:description"
+    content="Sign in with LinkedIn to start creating AI-personalized LinkedIn posts."
+  />
+  <meta
+    name="twitter:image"
+    content="https://storage.googleapis.com/postlnbucketcom/logo_512x512-removebg-preview.png"
+  />
+</Helmet>
+
 
 {isSmallScreen ? ( 
 

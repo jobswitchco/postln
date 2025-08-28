@@ -22,6 +22,8 @@ export default function SaveTimePage() {
           content="PostLn helps you skip the research and rewrite process. Go from idea to scheduled LinkedIn post in 3 minutes—saving 86+ minutes per day."
         />
         <meta property="og:type" content="website" />
+  <link rel="canonical" href="https://www.postln.com/save-time" />
+
       </Helmet>
 
       <Navbar />

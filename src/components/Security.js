@@ -1,6 +1,8 @@
 import { Box, Typography, Grid, Card, CardContent, useMediaQuery } from '@mui/material';
 import Navbar from './Navbar';
 import Footer from './Footer';
+import { Helmet } from "react-helmet";
+
 
 const securitySections = [
   {
@@ -58,6 +60,44 @@ const Security = () => {
 
   return (
     <>
+
+       <Helmet>
+  <title>Data Security & Privacy | PostLn</title>
+  <meta
+    name="description"
+    content="Learn how PostLn protects your data with enterprise-grade security: AES-256 encryption, GCP hosting, 99.9% uptime, OAuth 2.0 authentication, and strict compliance practices."
+  />
+
+  {/* Canonical URL */}
+  <link rel="canonical" href="https://www.postln.com/security" />
+
+  {/* Open Graph */}
+  <meta property="og:title" content="Data Security & Privacy | PostLn" />
+  <meta
+    property="og:description"
+    content="PostLn ensures your trust with AES-256 encryption, secure Google Cloud hosting, 24/7 monitoring, OAuth 2.0 authentication, and compliance with industry standards."
+  />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://www.postln.com/security" />
+  <meta
+    property="og:image"
+    content="https://storage.googleapis.com/postlnbucketcom/logo_512x512-removebg-preview.png"
+  />
+
+  {/* Twitter */}
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Data Security & Privacy | PostLn" />
+  <meta
+    name="twitter:description"
+    content="PostLn protects your data with enterprise-grade security: encryption, compliance, and 24/7 monitoring."
+  />
+  <meta
+    name="twitter:image"
+    content="https://storage.googleapis.com/postlnbucketcom/logo_512x512-removebg-preview.png"
+  />
+</Helmet>
+
+
       <Navbar />
       <Box sx={{ px: isMobile ? 3 : 10, py: 10, mt: 3 }}>
         <Typography variant="h3" sx={{ fontWeight: 600, mb: 3 }}>

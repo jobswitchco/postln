@@ -2,6 +2,8 @@ import { useMediaQuery, Box, Typography, Card, CardContent, List, ListItem, List
 import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord';
 import Navbar from './Navbar';
 import Footer from './Footer';
+    import { Helmet } from "react-helmet";
+
 
 const TrustCenter = () => {
   const isMobile = useMediaQuery('(max-width:600px)');
@@ -43,6 +45,44 @@ const TrustCenter = () => {
 
   return (
     <>
+
+    <Helmet>
+  <title>Trust Center | Security, Privacy & Accessibility | PostLn</title>
+  <meta
+    name="description"
+    content="The PostLn Trust Center explains how we keep your data safe with encryption, role-based access, GDPR compliance, and accessibility-first design."
+  />
+
+  {/* Canonical URL */}
+  <link rel="canonical" href="https://www.postln.com/trust-center" />
+
+  {/* Open Graph */}
+  <meta property="og:title" content="Trust Center | Security, Privacy & Accessibility | PostLn" />
+  <meta
+    property="og:description"
+    content="Learn how PostLn builds trust: AES-256 encryption, GDPR compliance, OAuth 2.0 authentication, WCAG 2.1 accessibility, and transparency by design."
+  />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://www.postln.com/trust-center" />
+  <meta
+    property="og:image"
+    content="https://storage.googleapis.com/postlnbucketcom/logo_512x512-removebg-preview.png"
+  />
+
+  {/* Twitter */}
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Trust Center | Security, Privacy & Accessibility | PostLn" />
+  <meta
+    name="twitter:description"
+    content="Explore PostLn's Trust Center — enterprise-grade security, data privacy, GDPR compliance, and accessibility for every user."
+  />
+  <meta
+    name="twitter:image"
+    content="https://storage.googleapis.com/postlnbucketcom/logo_512x512-removebg-preview.png"
+  />
+</Helmet>
+
+
       <Navbar />
       <Box sx={{ padding: isMobile ? 2 : 4, mt: 10, px: isMobile ? 2 : 10 }}>
         <Typography sx={{ fontSize: isMobile ? '32px' : '52px', fontWeight: 500 }} gutterBottom>
