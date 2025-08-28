@@ -48,6 +48,8 @@ const User_Schema = new Schema({
 
   free_trial_started_date: {
     type: Date,
+    default: Date.now,
+
   },
 
   access_token: {

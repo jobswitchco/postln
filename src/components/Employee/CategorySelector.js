@@ -34,6 +34,7 @@ function CategorySelector() {
   const [showTopicSave, setShowTopicSave] = useState(false);
    const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  // const baseUrl = "http://localhost:8001/usersOn";
       const baseUrl="/api/usersOn";
   const navigate = useNavigate();
   const dispatch = useDispatch();
@@ -66,7 +67,7 @@ useEffect(() => {
 
       if (postAnalysisStatus.data.success && postAnalysisStatus.data.profile_added) {
         // ✅ user already added topics, skip to analysis page
-        navigate("/analyze/my_style");
+        navigate("/professional/dashboard");
       }
 
     } catch (err) {
@@ -145,7 +146,7 @@ const handleTopicSave = async () => {
         );
 
         if (postAnalysisStatus.data.success && postAnalysisStatus.data.profile_added) {
-            navigate("/analyze/my_style");
+            navigate("/professional/dashboard");
           } else {
           }
         } else {

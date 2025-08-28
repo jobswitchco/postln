@@ -1,6 +1,7 @@
 # Allow all search engines to access most of the site
 User-agent: *
 Disallow: /admin/
+Disallow: /professional/login/
 Disallow: /api/
 Disallow: /private/
 Disallow: /login/

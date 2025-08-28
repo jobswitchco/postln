@@ -91,12 +91,17 @@ export default function TopicNewsGrid() {
   const [rewrittenText, setRewrittenText] = useState("");
   const [showComposer, setShowComposer] = useState(false);
   const [showTopicDialog, setShowTopicDialog] = useState(false);
+  // const baseUrl = "http://localhost:8001/usersOn";
   const baseUrl = "/api/usersOn"; 
-  // this is produ url 
+
+    const [isTrainDialogOpen, setIsTrainDialogOpen] = useState(false);
+
   const [selectedRegion, setSelectedRegion] = useState("Global");
   const [topics, setTopics] = useState([]);
   const [selectedTopic, setSelectedTopic] = useState("");
   const [selectedTopics, setSelectedTopics] = useState([]);
+  const [isModelReady, setIsModelReady] = useState(false);
+
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
@@ -123,6 +128,11 @@ export default function TopicNewsGrid() {
   return found ? found.code : String(selectedRegion).toUpperCase();
 };
 
+
+const handleContinueToTraining = () => {
+  setIsTrainDialogOpen(false);
+  window.open("/analyze/my_style", "_blank");
+};
 
   const handleCountryChange = (codeOrGlobal) => {
   setSelectedRegion(codeOrGlobal); // "Global" or "au", "in", ...
@@ -255,6 +265,7 @@ const handleCardClick = async (article) => {
       setTopics(fetchedTopics);
       const preselected = fetchedTopics.filter((t) => t.selected).map((t) => t.name);
       setSelectedTopics(preselected);
+      setIsModelReady(response.data.modelReady);
       const firstSelected = fetchedTopics.find((t) => t.selected);
       if (firstSelected) setSelectedTopic(firstSelected.name);
     } catch (error) {
@@ -267,16 +278,8 @@ const setupWebSocket = (topic, region, page = 1, limit = 9) => {
     try { wsRef.current.close(); } catch {}
     wsRef.current = null;
   }
-
-    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-
-  // Build WS URL dynamically
-  // If your server exposes WS on same origin:
-  const wsUrl = `${protocol}://${window.location.host}/api/usersOn`; // matches your express route + WS server
-
-const ws = new WebSocket(wsUrl);
-wsRef.current = ws;
-
+  const ws = new WebSocket("ws://localhost:8001");
+  wsRef.current = ws;
 
   // ✅ Only reset requestedCount for first page
   if (page === 1) {
@@ -299,6 +302,8 @@ wsRef.current = ws;
     try {
       const message = JSON.parse(event.data);
       if (message.type === "new-article" && message.article) {
+  console.log("Incoming WS article:", message.article);
+
         setArticles((prev) => {
           if (prev.find((a) => a.title === message.article.title)) return prev;
           return [...prev, message.article];
@@ -865,10 +870,19 @@ wsRef.current = ws;
   <DialogActions sx={{ px: 3, py: 2 }}>
     <Box
       onClick={() => {
+
         const combinedText = `${activeArticle?.title}\n\n${activeArticle?.summary}`;
         setPostText(combinedText);
+
+ if (isModelReady) {
         setShowRewriteDialog(true);
-      }}
+  } else {
+    setIsTrainDialogOpen(true);
+  }
+  
+}}
+
+
       sx={{
         background: "#093FB4",
         borderRadius: "26px",
@@ -948,6 +962,42 @@ wsRef.current = ws;
                   }}
                 />
               )}
+
+              <Dialog
+                open={isTrainDialogOpen}
+                onClose={() => setIsTrainDialogOpen(false)}
+                fullWidth
+                maxWidth="sm"
+              >
+                <DialogTitle>
+               Pending: Posts Analysis
+                </DialogTitle>
+                <DialogContent dividers>
+                  <Typography>
+                    To unlock rewriting in your own style, please continue with analyzing your past linkedin posts.
+                  </Typography>
+                </DialogContent>
+                <DialogActions>
+                  <Button onClick={() => setIsTrainDialogOpen(false)}>Cancel</Button>
+                    <Box
+                               onClick={handleContinueToTraining}
+                                sx={{
+                                  background: '#093FB4',
+                                  borderRadius: '26px',
+                                  px: 3,
+                                  py: 0.7,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  color: '#FFFFFF',
+                                  cursor: 'pointer',
+                                  '&:hover': { background: '#004030' },
+                                }}
+                              >
+                                <Typography sx={{ fontSize: isMobile ? '14px' : '16px' }}>Continue</Typography>
+                              </Box>
+                </DialogActions>
+              </Dialog>
       
             <Snackbar
               open={snackbar.open}

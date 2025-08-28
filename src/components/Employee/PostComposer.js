@@ -57,7 +57,6 @@ import FullScreenLoader from './FullScreenLoader';
 
 
 
-
 dayjs.extend(localizedFormat);
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -94,6 +93,9 @@ const [cursorPos, setCursorPos] = useState(0);
 const recognitionRef = useRef(null);
 const isManuallyStopped = useRef(false);
   const [editedText, setEditedText] = useState("");
+  const [isModelReady, setIsModelReady] = useState(false);
+  const [isTrainDialogOpen, setIsTrainDialogOpen] = useState(false);
+  
 
 
 const [publishSuccessSnackbar, setPublishSuccessSnackbar] = useState({
@@ -104,7 +106,9 @@ const [publishSuccessSnackbar, setPublishSuccessSnackbar] = useState({
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
 
+  // const baseUrl = "http://localhost:8001/usersOn";
   const baseUrl = "/api/usersOn";
+
 
     const [rewrites, setRewrites] = useState([]); // string[] or {post, rating}[]
     const [currentIdx, setCurrentIdx] = useState(0);
@@ -119,9 +123,6 @@ const normalizeRewrites = (res) => {
   }
   return [typeof res === "string" ? res : res?.post || ""].filter(Boolean);
 };
-
-
-
 
 
 const handleImageSelect = (event) => {
@@ -420,6 +421,11 @@ const handleSaveDraft = async () => {
 };
 
 
+const handleContinueToTraining = () => {
+  setIsTrainDialogOpen(false);
+  window.open("/analyze/my_style", "_blank");
+};
+
 const CHARACTER_LIMIT = 2800;
 const isCharLimitExceeded =
   postText.length > CHARACTER_LIMIT || originalPostText.length > CHARACTER_LIMIT;
@@ -480,24 +486,27 @@ const getAvailableTimeSlots = (selectedDate) => {
   return slots;
 };
 
+
 useEffect(() => {
-
-
-  const fetchUserName = async () => {
+  const fetchUserDetails = async () => {
     try {
       const response = await axios.get(`${baseUrl}/get-user-name-image`, {
         withCredentials: true,
       });
+
       setUserName(response.data.name);
       setProfilePicture(response.data.profilePicture);
+      setIsModelReady(response.data.modelReady || false);
     } catch (error) {
-      console.error("Failed to fetch user name:", error);
+      console.error("Failed to fetch user name or model status:", error);
       setUserName("");
+      setIsModelReady(false);
     }
   };
 
-  fetchUserName();
+  fetchUserDetails();
 }, []);
+
 
 
 
@@ -952,9 +961,11 @@ onClick={() => {
       recognitionRef.current.stop();
       setIsListening(false);
     }
-
-    // ✅ Then open Rewrite dialog
+ if (isModelReady) {
     setIsRewriteOpen(true);
+  } else {
+    setIsTrainDialogOpen(true);
+  }
   }
 }}
 
@@ -1824,7 +1835,41 @@ onClick={() => {
 </Dialog>
 
 
-
+<Dialog
+  open={isTrainDialogOpen}
+  onClose={() => setIsTrainDialogOpen(false)}
+  fullWidth
+  maxWidth="sm"
+>
+  <DialogTitle>
+ Pending: Posts Analysis
+  </DialogTitle>
+  <DialogContent dividers>
+    <Typography>
+      To unlock rewriting in your own style, please continue with analyzing your past linkedin posts.
+    </Typography>
+  </DialogContent>
+  <DialogActions>
+    <Button onClick={() => setIsTrainDialogOpen(false)}>Cancel</Button>
+      <Box
+                 onClick={handleContinueToTraining}
+                  sx={{
+                    background: '#093FB4',
+                    borderRadius: '26px',
+                    px: 3,
+                    py: 0.7,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#FFFFFF',
+                    cursor: 'pointer',
+                    '&:hover': { background: '#004030' },
+                  }}
+                >
+                  <Typography sx={{ fontSize: isMobile ? '14px' : '16px' }}>Continue</Typography>
+                </Box>
+  </DialogActions>
+</Dialog>
 
 
 

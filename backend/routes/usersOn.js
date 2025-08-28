@@ -1099,7 +1099,8 @@ router.get("/get-topics-of-user", authenticateToken, async (req, res) => {
       selected: userTopics.includes(topic),
     }));
 
-    return res.status(200).json({ fetched: true, message: "Topics updated", result });
+    return res.status(200).json({ fetched: true, message: "Topics updated", result, modelReady: user.model_training_finished });
+
   } catch (err) {
     console.error("Error fetching topics:", err);
     return res.status(500).json({ fetched: false, message: "Server error" });
@@ -1137,7 +1138,7 @@ router.get("/get-user-name-image", authenticateToken, async (req, res) => {
     }
 
     // Fetch user with free_trial_started_date
-    const user = await USER.findById(userId).select("name picture free_trial_started_date");
+    const user = await USER.findById(userId).select("name picture free_trial_started_date model_training_finished");
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -1159,6 +1160,7 @@ router.get("/get-user-name-image", authenticateToken, async (req, res) => {
       name: user.name,
       profilePicture: user.picture || null,
       freeTrialDaysLeft, // will be 0 if expired, null if never started
+      modelReady: user.model_training_finished
     });
 
   } catch (error) {
@@ -1687,6 +1689,7 @@ router.post('/analyze-writing-style', authenticateToken, async (req, res) => {
     // Mark user training started
     await USER.findByIdAndUpdate(user_id, {
       model_training_started: true,
+      free_trial: true,
       model_start_time: new Date(),
     });
 

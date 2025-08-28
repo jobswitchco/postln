@@ -21,7 +21,9 @@ const LinkedInStyleAnalyzer = () => {
   const [linkedinUrl, setLinkedinUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [toastOpen, setToastOpen] = useState(false);
+  // const baseUrl = "http://localhost:8001/usersOn";
       const baseUrl="/api/usersOn";
+
   const navigate = useNavigate();
   const [showLoadingAnimation, setShowLoadingAnimation] = useState(false);
  const [minutesLeft, setMinutesLeft] = useState(null);
@@ -142,7 +144,6 @@ const handleAnalyze = async () => {
           color: "text.secondary",
         }}
       >
- Crafting your LinkedIn co-pilot ☕
 We analyze your posts to learn your writing style. 
 This takes up to <strong>30 minutes</strong>. Sit back, relax, and we'll notify you when it's ready!
 
@@ -254,6 +255,7 @@ This takes up to <strong>30 minutes</strong>. Sit back, relax, and we'll notify 
   error={!!urlError} // highlights the input in red
   helperText={urlError} // shows the error message
   sx={{ mb: 2 }}
+  autoFocus   
 />
 
 
