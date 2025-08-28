@@ -278,7 +278,13 @@ const setupWebSocket = (topic, region, page = 1, limit = 9) => {
     try { wsRef.current.close(); } catch {}
     wsRef.current = null;
   }
-  const ws = new WebSocket("ws://localhost:8001");
+
+    const wsUrl = `${protocol}://${window.location.host}/api/usersOn`; // matches your express route + WS server
+
+
+  // const ws = new WebSocket("ws://localhost:8001");
+const ws = new WebSocket(wsUrl);
+
   wsRef.current = ws;
 
   // ✅ Only reset requestedCount for first page
