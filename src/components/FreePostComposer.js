@@ -619,6 +619,8 @@ const renderWithMore = (raw) => {
               content="Format LinkedIn posts with bold, italic, underline & more. 100% free tool — no ads, no tracking. Make your posts stand out & boost engagement."
             />
             <meta property="og:type" content="website" />
+  <link rel="canonical" href="https://www.postln.com/linkedin-text-formatter" />
+
           </Helmet>
     
     <Navbar />
