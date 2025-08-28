@@ -91,8 +91,7 @@ export default function TopicNewsGrid() {
   const [rewrittenText, setRewrittenText] = useState("");
   const [showComposer, setShowComposer] = useState(false);
   const [showTopicDialog, setShowTopicDialog] = useState(false);
-  // const baseUrl = "http://localhost:8001/usersOn";
-  const baseUrl = "/api/usersOn"; 
+  const baseUrl = "/api/usersOn";
 
     const [isTrainDialogOpen, setIsTrainDialogOpen] = useState(false);
 
@@ -279,12 +278,11 @@ const setupWebSocket = (topic, region, page = 1, limit = 9) => {
     wsRef.current = null;
   }
 
-    const wsUrl = `${protocol}://${window.location.host}/api/usersOn`; // matches your express route + WS server
-
-
-  // const ws = new WebSocket("ws://localhost:8001");
+    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+  const wsUrl = `${protocol}://${window.location.host}/api/usersOn`; // matches your express route + WS server
 const ws = new WebSocket(wsUrl);
 
+     
   wsRef.current = ws;
 
   // ✅ Only reset requestedCount for first page
