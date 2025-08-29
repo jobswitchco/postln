@@ -22,12 +22,11 @@ import PhoneIphoneIcon from "@mui/icons-material/PhoneIphone";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import Picker from "@emoji-mart/react";
 import data from "@emoji-mart/data";
-import myAvatar from "../../src/images/avatar_linkedin_400.png"
+import myAvatar from "../../src/images/avatar_linkedin_400.png";
 import Navbar from "./Navbar";
 import Footer from "./Footer";
 import BannerLandpage from "./BannerLandPage";
 import { Helmet } from "react-helmet";
-
 
 /** ===================== Unicode helpers (bold / italicSans + underline/strike) ===================== */
 const ranges = {
@@ -37,7 +36,6 @@ const ranges = {
 const COMB_UNDER = "\u0332";
 const COMB_STRIKE_A = "\u0336"; // default
 const COMB_STRIKE_B = "\u0335"; // alternate
-
 
 const isAsciiLetter = (cp) => (cp >= 65 && cp <= 90) || (cp >= 97 && cp <= 122);
 const isAsciiDigit = (cp) => cp >= 48 && cp <= 57;
@@ -83,84 +81,59 @@ const applyCombining = (text, mark) =>
 
 // ===================== NEW: constants for your requests =====================
 const MAX_CHARS = 2800;
-// purely visual “…more” insert point for preview; tweak as needed
-const SEE_MORE_BREAK = 210;
 
-/** ===================== Component ===================== */
 export default function LinkedInFormatterEditor() {
   const [text, setText] = useState("");
   const [strikeStyle, setStrikeStyle] = useState("0336"); // 0336 default, 0335 alt
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [copiedOpen, setCopiedOpen] = useState(false); // toast for Copy Text
+  const [copiedOpen, setCopiedOpen] = useState(false);
   const [previewMode, setPreviewMode] = useState("desktop"); // 'desktop' | 'mobile'
   const textAreaRef = useRef(null);
-  const emojiAnchorRef = useRef(null); // for positioning the picker
+  const emojiAnchorRef = useRef(null);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
-const previewBodyRef = useRef(null);
+  const previewBodyRef = useRef(null);
 
+  useEffect(() => {
+    setPreviewMode(isMobile ? "mobile" : "desktop");
+  }, [isMobile]);
 
+  useEffect(() => {
+    setText((prev) => prev.replace(/#[^\s#]+/g, (seg) => toPlain(seg)));
+  }, []);
 
-useEffect(() => {
-  // When toggle is hidden on mobile, force mobile mode.
-  // When back to desktop, force desktop mode.
-  setPreviewMode(isMobile ? "mobile" : "desktop");
-}, [isMobile]);
+  const [previewWidth, setPreviewWidth] = useState(0);
+  const roRef = useRef(null);
 
-useEffect(() => {
-  setText(prev => {
-    // Convert any existing Unicode-styled hashtags back to plain text
-    return prev.replace(/#[^\s#]+/g, seg => toPlain(seg));
-  });
-}, []);
+  useLayoutEffect(() => {
+    const container = previewBodyRef.current?.parentElement;
+    if (!container) return;
 
+    let rafId = 0;
+    let last = -1;
 
-
-const [previewWidth, setPreviewWidth] = useState(0);
-const roRef = useRef(null);
-
-useLayoutEffect(() => {
-  const container = previewBodyRef.current?.parentElement;
-  if (!container) return;
-
-  let rafId = 0;
-  let last = -1;
-
-  roRef.current = new ResizeObserver(([entry]) => {
-    // Read only — no setState here
-    const w = Math.round(
-      (entry.contentBoxSize?.[0]?.inlineSize) ??
-      entry.contentRect?.width ??
-      container.clientWidth
-    );
-
-    if (w === last) return; // avoid redundant updates
-    last = w;
-
-    // Defer the write to the next frame to avoid the loop warning
-    cancelAnimationFrame(rafId);
-    rafId = requestAnimationFrame(() => {
-      setPreviewWidth(w);
+    roRef.current = new ResizeObserver(([entry]) => {
+      const w = Math.round(
+        entry.contentBoxSize?.[0]?.inlineSize ??
+          entry.contentRect?.width ??
+          container.clientWidth
+      );
+      if (w === last) return;
+      last = w;
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        setPreviewWidth(w);
+      });
     });
-  });
 
-  roRef.current.observe(container);
+    roRef.current.observe(container);
 
-  return () => {
-    cancelAnimationFrame(rafId);
-    roRef.current?.disconnect();
-    roRef.current = null;
-  };
-}, [previewMode]); // reattach after the preview remounts via key={previewMode}
-
-let t = 0;
-roRef.current = new ResizeObserver(([entry]) => {
-  clearTimeout(t);
-  const w = Math.round(entry.contentRect?.width || 0);
-  t = setTimeout(() => setPreviewWidth(w), 0);
-});
-
-
+    return () => {
+      cancelAnimationFrame(rafId);
+      roRef.current?.disconnect();
+      roRef.current = null;
+    };
+  }, [previewMode]);
 
   // NEW: over-limit flag for color changes
   const overLimit = text.length > MAX_CHARS;
@@ -258,16 +231,21 @@ roRef.current = new ResizeObserver(([entry]) => {
     const el = textAreaRef.current;
     if (!el) return;
     selRef.current = {
-      start: el.selectionStart ?? 0,
-      end: el.selectionEnd ?? 0,
+      start: el.selectionStart ?? selRef.current.start ?? 0,
+      end: el.selectionEnd ?? selRef.current.end ?? 0,
     };
   };
 
+  // UPDATED: fall back to remembered selection if live selection is collapsed
   const getSelection = () => {
     const el = textAreaRef.current;
     if (!el) return null;
-    const start = el.selectionStart ?? selRef.current.start;
-    const end = el.selectionEnd ?? selRef.current.end;
+    let start = el.selectionStart;
+    let end = el.selectionEnd;
+    if (start == null || end == null || start === end) {
+      start = selRef.current.start ?? 0;
+      end = selRef.current.end ?? 0;
+    }
     if (start === end) return null;
     return { el, start, end };
   };
@@ -289,7 +267,6 @@ roRef.current = new ResizeObserver(([entry]) => {
     commit(next, caretPos, caretPos);
   };
 
-  // Insert arbitrary text (emoji) at current caret/selection, preserving history
   const insertAtSelection = (insertText) => {
     const el = textAreaRef.current;
     const start = el?.selectionStart ?? selRef.current.start ?? 0;
@@ -346,68 +323,31 @@ roRef.current = new ResizeObserver(([entry]) => {
     replaceSelection(next);
   };
 
-  // ---------- Keyboard shortcuts ----------
-  const onKeyDown = (e) => {
-    const isMod = e.ctrlKey || e.metaKey;
-    if (!isMod) return;
-    const key = e.key.toLowerCase();
+  // commit typing to history
+  const onChange = (e) => {
+    let val = e.target.value;
+    setText(val);
 
-    if (key === "b") {
-      e.preventDefault();
-      toggleStyle("bold");
-      return;
-    }
-    if (key === "i") {
-      e.preventDefault();
-      toggleStyle("italicSans");
-      return;
-    }
-    if (key === "u") {
-      e.preventDefault();
-      toggleUnderline();
-      return;
-    }
-    if (key === "z") {
-      e.preventDefault();
-      if (e.shiftKey) redo();
-      else undo();
-      return;
-    }
-    if (key === "y") {
-      e.preventDefault();
-      redo();
-    }
+    requestAnimationFrame(() => {
+      const el = textAreaRef.current;
+      if (!el) return;
+      const start = el.selectionStart ?? val.length;
+      const end = el.selectionEnd ?? val.length;
+      commit(val, start, end);
+      selRef.current = { start, end };
+    });
   };
 
-  // commit typing to history
-const onChange = (e) => {
-  let val = e.target.value;
+  const renderHashtags = (text) => {
+    const parts = text.split(/(#[\w]+)/g);
+    return parts.map((part, i) =>
+      /^#[\w]+$/.test(part)
+        ? <span key={i} style={{ fontWeight: 500, color: "#0a66c2" }}>{part}</span>
+        : part
+    );
+  };
 
-  setText(val);
-
-  requestAnimationFrame(() => {
-    const el = textAreaRef.current;
-    if (!el) return;
-    const start = el.selectionStart ?? val.length;
-    const end = el.selectionEnd ?? val.length;
-    commit(val, start, end);
-    selRef.current = { start, end };
-  });
-};
-
-const renderHashtags = (text) => {
-  const parts = text.split(/(#[\w]+)/g);
-  return parts.map((part, i) =>
-    /^#[\w]+$/.test(part)
-      ? <span key={i} style={{ fontWeight: 500, color: "#0a66c2" }}>{part}</span>
-      : part
-  );
-};
-
-
-
-
-  /** ===================== Preview renderer (solid underline + centered strike) ===================== */
+  /** ===================== Preview renderer ===================== */
   const renderWithTextDecor = (raw) => {
     const STRIKE = strikeStyle === "0335" ? COMB_STRIKE_B : COMB_STRIKE_A;
     const nodes = [];
@@ -427,12 +367,11 @@ const renderHashtags = (text) => {
         const style = {
           textDecoration: `${deco.u ? "underline" : ""} ${deco.s ? "line-through" : ""}`.trim(),
         };
-     nodes.push(
-   <span key={`d-${nodes.length}`} style={style}>
-     {decoBuf}
-   </span>
- );
-
+        nodes.push(
+          <span key={`d-${nodes.length}`} style={style}>
+            {decoBuf}
+          </span>
+        );
         decoBuf = "";
         deco = { u: false, s: false };
       }
@@ -478,107 +417,90 @@ const renderHashtags = (text) => {
       const style = n.props.style;
       const parts = String(text).split("\n");
       parts.forEach((p, j) => {
-      if (p) withBreaks.push(
- <span key={`${n.key}-${j}`} style={style}>
-       {renderHashtags(p)}
-     </span>
-   );
+        if (p)
+          withBreaks.push(
+            <span key={`${n.key}-${j}`} style={style}>
+              {renderHashtags(p)}
+            </span>
+          );
         if (j < parts.length - 1) withBreaks.push(<br key={`${n.key}-br-${j}`} />);
       });
     });
     return withBreaks;
   };
 
-const MAX_VISIBLE_LINES_DESKTOP = 3;
-const MAX_VISIBLE_LINES_MOBILE  = 2;
-const ELLIPSIS_TEXT = " …more"; // LinkedIn shows a leading space before “…more”
+  const MAX_VISIBLE_LINES_DESKTOP = 3;
+  const MAX_VISIBLE_LINES_MOBILE = 2;
+  const ELLIPSIS_TEXT = " …more";
 
-/** Exact truncation using a hidden DOM measurer that mirrors the preview body.
- *  IMPORTANT: we include ELLIPSIS_TEXT while measuring, so the cut happens
- *  exactly where prefix + “ …more” still fits within N lines.
- */
-const getTruncationIndexDOM = (raw, { el, maxLines }) => {
-  if (!raw || !el) return -1;
+  const getTruncationIndexDOM = (raw, { el, maxLines }) => {
+    if (!raw || !el) return -1;
 
-  const cs = getComputedStyle(el);
+    const cs = getComputedStyle(el);
 
-  // Offscreen measurer with the *same* width & typography as the preview node
-  const measurer = document.createElement("div");
-  measurer.style.position = "fixed";
-  measurer.style.left = "-99999px";
-  measurer.style.top = "-99999px";
-  measurer.style.visibility = "hidden";
-  measurer.style.width = `${el.clientWidth}px`;
-  measurer.style.whiteSpace = "pre-wrap";
-  measurer.style.wordBreak = cs.wordBreak || "break-word";
-  measurer.style.font = cs.font || `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
-  measurer.style.letterSpacing = cs.letterSpacing;
-  measurer.style.lineHeight = cs.lineHeight;
-  document.body.appendChild(measurer);
+    const measurer = document.createElement("div");
+    measurer.style.position = "fixed";
+    measurer.style.left = "-99999px";
+    measurer.style.top = "-99999px";
+    measurer.style.visibility = "hidden";
+    measurer.style.width = `${el.clientWidth}px`;
+    measurer.style.whiteSpace = "pre-wrap";
+    measurer.style.wordBreak = cs.wordBreak || "break-word";
+    measurer.style.font = cs.font || `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+    measurer.style.letterSpacing = cs.letterSpacing;
+    measurer.style.lineHeight = cs.lineHeight;
+    document.body.appendChild(measurer);
 
-  // Height for exactly N lines (we don’t guess line-height — we measure it)
-  const sample = new Array(maxLines).fill("A").join("\n");
-  measurer.textContent = sample;
-  const maxHeight = measurer.getBoundingClientRect().height + 0.75; // small epsilon
+    const sample = new Array(maxLines).fill("A").join("\n");
+    measurer.textContent = sample;
+    const maxHeight = measurer.getBoundingClientRect().height + 0.75;
 
-  // Binary search the largest prefix that still fits when “…more” is appended
-  let lo = 0, hi = raw.length, ans = -1;
-  while (lo <= hi) {
-    const mid = (lo + hi) >> 1;
-    const prefix = raw.slice(0, mid);
-    // Only add ellipsis if we’re actually truncating
-    measurer.textContent = prefix + (mid < raw.length ? ELLIPSIS_TEXT : "");
-    const h = measurer.getBoundingClientRect().height;
+    let lo = 0, hi = raw.length, ans = -1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      const prefix = raw.slice(0, mid);
+      measurer.textContent = prefix + (mid < raw.length ? ELLIPSIS_TEXT : "");
+      const h = measurer.getBoundingClientRect().height;
 
-    if (h <= maxHeight) {
-      ans = mid;        // this much (plus ellipsis if truncated) still fits
-      lo = mid + 1;
-    } else {
-      hi = mid - 1;
+      if (h <= maxHeight) {
+        ans = mid;
+        lo = mid + 1;
+      } else {
+        hi = mid - 1;
+      }
     }
-  }
 
-  document.body.removeChild(measurer);
+    document.body.removeChild(measurer);
 
-  // If everything (without ellipsis) fits, no “…more”
-  if (ans >= raw.length) return -1;
+    if (ans >= raw.length) return -1;
 
-  // Trim trailing spaces from the visible part so the inserted space before
-  // “…more” doesn’t double up against an existing space.
-  while (ans > 0 && /\s/.test(raw[ans - 1])) ans--;
+    while (ans > 0 && /\s/.test(raw[ans - 1])) ans--;
 
-  return Math.max(0, ans);
-};
+    return Math.max(0, ans);
+  };
 
-// Render with “…more” injected at the real clamp point, keeping the rest visible.
-const renderWithMore = (raw) => {
-  if (!raw) return "Your formatted post will preview here…";
-  const maxLines = (previewMode === "mobile" ? MAX_VISIBLE_LINES_MOBILE : MAX_VISIBLE_LINES_DESKTOP);
-  const el = previewBodyRef.current;
-  const cut = getTruncationIndexDOM(raw, { el, maxLines });
+  const renderWithMore = (raw) => {
+    if (!raw) return "Your formatted post will preview here…";
+    const maxLines = previewMode === "mobile" ? MAX_VISIBLE_LINES_MOBILE : MAX_VISIBLE_LINES_DESKTOP;
+    const el = previewBodyRef.current;
+    const cut = getTruncationIndexDOM(raw, { el, maxLines });
 
-  if (cut < 0) return renderWithTextDecor(raw);
+    if (cut < 0) return renderWithTextDecor(raw);
 
-  const before = raw.slice(0, cut);
-  const after  = raw.slice(cut);
+    const before = raw.slice(0, cut);
+    const after = raw.slice(cut);
+    const needsSpaceAfter = after && !/^\s/.test(after);
 
-  // tidy surrounding spaces so we don’t get “…morelooking”
-  const needsSpaceAfter = after && !/^\s/.test(after);
+    return (
+      <>
+        {renderWithTextDecor(before)}
+        <span style={{ color: "#6b7280" }}>{ELLIPSIS_TEXT.trimStart()}</span>
+        {needsSpaceAfter ? " " : null}
+        {renderWithTextDecor(after)}
+      </>
+    );
+  };
 
-  return (
-    <>
-      {renderWithTextDecor(before)}
-      {/* LinkedIn visually has a space before “…more” */}
-      <span style={{ color: "#6b7280" }}>{ELLIPSIS_TEXT.trimStart()}</span>
-      {needsSpaceAfter ? " " : null}
-      {renderWithTextDecor(after)}
-    </>
-  );
-};
-
-
-
-  // Reaction bubble (for left side reactions cluster)
   const ReactionDot = ({ icon, bg }) => (
     <Box
       sx={{
@@ -598,315 +520,357 @@ const renderWithMore = (raw) => {
     </Box>
   );
 
-  // widths for simulator
-  const simulatedWidth = previewMode === "mobile" ? 380 : 680;
-
   return (
-
     <>
       <Helmet>
-            <title>Free LinkedIn Text Formatter | Bold, Italic & Stylish Posts | PostLn</title>
-            <meta
-              name="description"
-              content="Format LinkedIn posts with bold, italic, underline & more. 100% free tool — no ads, no tracking. Make your posts stand out & boost engagement."
-            />
-            <meta
-              property="og:title"
-              content="Free LinkedIn Text Formatter | Bold, Italic & Stylish Posts | PostLn"
-            />
-            <meta
-              property="og:description"
-              content="Format LinkedIn posts with bold, italic, underline & more. 100% free tool — no ads, no tracking. Make your posts stand out & boost engagement."
-            />
-            <meta property="og:type" content="website" />
-  <link rel="canonical" href="https://www.postln.com/linkedin-text-formatter" />
+        <title>Free LinkedIn Text Formatter | Bold, Italic & Stylish Posts | PostLn</title>
+        <meta
+          name="description"
+          content="Format LinkedIn posts with bold, italic, underline & more. 100% free tool — no ads, no tracking. Make your posts stand out & boost engagement."
+        />
+        <meta property="og:title" content="Free LinkedIn Text Formatter | Bold, Italic & Stylish Posts | PostLn" />
+        <meta
+          property="og:description"
+          content="Format LinkedIn posts with bold, italic, underline & more. 100% free tool — no ads, no tracking. Make your posts stand out & boost engagement."
+        />
+        <meta property="og:type" content="website" />
+        <link rel="canonical" href="https://www.postln.com/linkedin-text-formatter" />
+      </Helmet>
 
-          </Helmet>
-    
-    <Navbar />
-   <Box sx={{ p: { xs: 2, md: 4 }, maxWidth: 1400, mx: "auto", mt: isMobile ? 6 : 4 }}>
-  {/* Centered hero */}
-  <Stack
-    sx={{
-      p: { xs: 2, md: 3 },
-      textAlign: "center",
-      alignItems: "center",
-      justifyContent: "center",
-      mx: "auto",
-      maxWidth: 800,      // keeps it nicely narrow
-      borderRadius: 2,
-      mb: 4               // space before the grid
-    }}
-    spacing={2}
-  >
-    <Typography
-      sx={{
-        fontFamily: "Inter",
-        fontSize: isMobile ? "22px" : "32px",
-        fontWeight: 500
-      }}
-    >
-      LinkedIn Text Formatter
-    </Typography>
-
-    <Typography sx={{ maxWidth: 600 , fontSize : '15px'}}>
-     Format your LinkedIn posts with bold, italic, underline, #hashtags and more — completely free, with no ads or tracking.
-    </Typography>
-  </Stack>
-
-  {/* Below: Editor (left) + Preview (right) */}
-  <Grid container spacing={3}>
-    {/* LEFT: Editor */}
-    <Grid item xs={12} md={6} lg={6}>
-      <Card sx={{ borderRadius: 3, position: "relative" }}>
-        <CardContent>
-          {/* Toolbar */}
-          <Stack direction="row" spacing={1} sx={{ mb: 1 }} alignItems="center">
-            <Tooltip title="Bold (Ctrl/Cmd + B)">
-              <span>
-                <IconButton onMouseDown={(e) => e.preventDefault()} onClick={() => toggleStyle("bold")}>
-                  <FormatBoldIcon />
-                </IconButton>
-              </span>
-            </Tooltip>
-            <Tooltip title="Italic Sans (Ctrl/Cmd + I)">
-              <span>
-                <IconButton onMouseDown={(e) => e.preventDefault()} onClick={() => toggleStyle("italicSans")}>
-                  <FormatItalicIcon />
-                </IconButton>
-              </span>
-            </Tooltip>
-            <Tooltip title="Underline (Ctrl/Cmd + U) — LinkedIn may render it dashed or omit it">
-              <span>
-                <IconButton onMouseDown={(e) => e.preventDefault()} onClick={toggleUnderline}>
-                  <FormatUnderlinedIcon />
-                </IconButton>
-              </span>
-            </Tooltip>
-            <Tooltip title="Strikethrough (try 0335 vs 0336)">
-              <span>
-                <IconButton onMouseDown={(e) => e.preventDefault()} onClick={toggleStrike}>
-                  <StrikethroughSIcon />
-                </IconButton>
-              </span>
-            </Tooltip>
-
-            {/* Emoji */}
-            <Tooltip title="Insert emoji">
-              <span>
-                <IconButton
-                  ref={emojiAnchorRef}
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => {
-                    captureSelection();
-                    setShowEmojiPicker((v) => !v);
-                  }}
-                >
-                  <InsertEmoticonIcon />
-                </IconButton>
-              </span>
-            </Tooltip>
-
-            <Box sx={{ flexGrow: 1 }} />
-
-            {/* Copy Text button */}
-            <Tooltip title="Copy formatted text">
-              <span>
-                <Button
-                  size="small"
-                  startIcon={<ContentCopyIcon />}
-                  onClick={async () => {
-                    try {
-                      await navigator.clipboard.writeText(text || "");
-                      setCopiedOpen(true);
-                    } catch (e) {
-                      const ta = document.createElement("textarea");
-                      ta.value = text || "";
-                      document.body.appendChild(ta);
-                      ta.select();
-                      document.execCommand("copy");
-                      document.body.removeChild(ta);
-                      setCopiedOpen(true);
-                    }
-                  }}
-                  sx={{ fontSize: "10px", fontWeight: 600, color: "grey" }}
-                >
-                  Copy
-                </Button>
-              </span>
-            </Tooltip>
-          </Stack>
-
-          {/* Emoji picker */}
-          {showEmojiPicker && (
-            <ClickAwayListener onClickAway={() => setShowEmojiPicker(false)}>
-              <Box
-                sx={{
-                  position: "absolute",
-                  zIndex: 10,
-                  top: 56,
-                  right: 12,
-                  maxWidth: "100%"
-                }}
-              >
-                <Picker
-                  data={data}
-                  onEmojiSelect={(emoji) => {
-                    const ch = emoji?.native ?? "";
-                    if (!ch) return;
-                    insertAtSelection(ch);
-                    setShowEmojiPicker(false);
-                  }}
-                  theme="light"
-                />
-              </Box>
-            </ClickAwayListener>
-          )}
-
-          <TextField
-            inputRef={textAreaRef}
-            placeholder="Write your LinkedIn post here…"
-            multiline
-            minRows={12}
-            fullWidth
-            value={text}
-            onChange={onChange}
-            onSelect={captureSelection}
-            onKeyUp={captureSelection}
-            onClick={captureSelection}
-            onKeyDown={(e) => {
-              const isMod = e.ctrlKey || e.metaKey;
-              if (!isMod) return;
-              const key = e.key.toLowerCase();
-              if (key === "b") { e.preventDefault(); toggleStyle("bold"); }
-              else if (key === "i") { e.preventDefault(); toggleStyle("italicSans"); }
-              else if (key === "u") { e.preventDefault(); toggleUnderline(); }
-              else if (key === "z") { e.preventDefault(); e.shiftKey ? redo() : undo(); }
-              else if (key === "y") { e.preventDefault(); redo(); }
-            }}
-            InputProps={{ sx: { fontSize: 16, color: overLimit ? "error.main" : "inherit" } }}
-          />
-
-          <Stack direction="row" justifyContent="space-between" sx={{ mt: 1 }}>
-            <Typography variant="caption" sx={{ color: overLimit ? "error.main" : "text.secondary" }}>
-              {`${text.length}/${MAX_CHARS}`} characters
-            </Typography>
-          </Stack>
-
-          <Snackbar
-            open={copiedOpen}
-            autoHideDuration={2000}
-            onClose={() => setCopiedOpen(false)}
-            message="Text copied to clipboard"
-          />
-        </CardContent>
-      </Card>
-    </Grid>
-
-    {/* RIGHT: LinkedIn Post Simulator */}
-    <Grid item xs={12} md={6} lg={6}>
-      <Box sx={{ border: "1px solid grey", pb: 2, borderRadius: 3, px: 2, py: 1 }}>
-        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
-          <Typography sx={{ fontFamily: "Inter", fontSize: "15px", fontWeight: 500, color: "grey" }}>
-            Post Preview
+      <Navbar />
+      <Box sx={{ p: { xs: 2, md: 4 }, maxWidth: 1400, mx: "auto", mt: isMobile ? 6 : 4 }}>
+        {/* Centered hero */}
+        <Stack
+          sx={{
+            p: { xs: 2, md: 3 },
+            textAlign: "center",
+            alignItems: "center",
+            justifyContent: "center",
+            mx: "auto",
+            maxWidth: 800,
+            borderRadius: 2,
+            mb: 4,
+          }}
+          spacing={2}
+        >
+          <Typography sx={{ fontFamily: "Inter", fontSize: isMobile ? "22px" : "32px", fontWeight: 500 }}>
+            LinkedIn Text Formatter
           </Typography>
 
-          {/* Hide desktop/mobile toggle on small screens */}
-          {!isMobile && (
-            <ToggleButtonGroup
-              size="small"
-              value={previewMode}
-              exclusive
-              onChange={(_, v) => v && setPreviewMode(v)}
-            >
-              <ToggleButton value="mobile">
-                <PhoneIphoneIcon fontSize="small" sx={{ mr: 1 }} />
-              </ToggleButton>
-              <ToggleButton value="desktop">
-                <LaptopMacIcon fontSize="small" sx={{ mr: 1 }} />
-              </ToggleButton>
-            </ToggleButtonGroup>
-          )}
+          <Typography sx={{ maxWidth: 600, fontSize: "15px" }}>
+            Format your LinkedIn posts with bold, italic, underline, #hashtags and more — completely free, with no ads
+            or tracking.
+          </Typography>
         </Stack>
 
-        {/* Simulated viewport frame */}
-        <Box sx={{ display: "flex", justifyContent: "center" }}>
-          <Card sx={{ borderRadius: 3, width: "100%", maxWidth: previewMode === "mobile" ? 380 : 680 }}>
-            <CardContent>
-              {/* Header */}
-              <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 1 }}>
-                <Avatar alt="Profile" src={myAvatar} sx={{ width: 48, height: 48 }} />
-                <Box>
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <Typography sx={{ fontFamily: "Inter", fontWeight: 600 }}>Bhaskar Sriram</Typography>
-                    <CheckCircleOutlineIcon fontSize="small" sx={{ color: "primary.main" }} />
-                  </Stack>
-                  <Typography variant="body2" color="text.secondary">
-                    Founder @PostLn.com -LinkedIn AI That Writes Like You.
+        <Grid container spacing={3}>
+          {/* LEFT: Editor */}
+          <Grid item xs={12} md={6} lg={6}>
+            <Card sx={{ borderRadius: 3, position: "relative" }}>
+              <CardContent>
+                {/* Toolbar */}
+                <Stack direction="row" spacing={1} sx={{ mb: 1 }} alignItems="center">
+                  <Tooltip title="Bold (Ctrl/Cmd + B)">
+                    <span>
+                      <IconButton
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          captureSelection();
+                        }}
+                        onClick={() => toggleStyle("bold")}
+                      >
+                        <FormatBoldIcon />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+
+                  <Tooltip title="Italic Sans (Ctrl/Cmd + I)">
+                    <span>
+                      <IconButton
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          captureSelection();
+                        }}
+                        onClick={() => toggleStyle("italicSans")}
+                      >
+                        <FormatItalicIcon />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+
+                  <Tooltip title="Underline (Ctrl/Cmd + U) — LinkedIn may render it dashed or omit it">
+                    <span>
+                      <IconButton
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          captureSelection();
+                        }}
+                        onClick={toggleUnderline}
+                      >
+                        <FormatUnderlinedIcon />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+
+                  <Tooltip title="Strikethrough (try 0335 vs 0336)">
+                    <span>
+                      <IconButton
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          captureSelection();
+                        }}
+                        onClick={toggleStrike}
+                      >
+                        <StrikethroughSIcon />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+
+                  {/* Emoji */}
+                  <Tooltip title="Insert emoji">
+                    <span>
+                      <IconButton
+                        ref={emojiAnchorRef}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          captureSelection();
+                        }}
+                        onClick={() => {
+                          captureSelection();
+                          setShowEmojiPicker((v) => !v);
+                        }}
+                      >
+                        <InsertEmoticonIcon />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+
+                  <Box sx={{ flexGrow: 1 }} />
+
+                  {/* Copy Text button */}
+                  <Tooltip title="Copy formatted text">
+                    <span>
+                      <Button
+                        size="small"
+                        startIcon={<ContentCopyIcon />}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          captureSelection();
+                        }}
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard.writeText(text || "");
+                            setCopiedOpen(true);
+                          } catch (e) {
+                            const ta = document.createElement("textarea");
+                            ta.value = text || "";
+                            document.body.appendChild(ta);
+                            ta.select();
+                            document.execCommand("copy");
+                            document.body.removeChild(ta);
+                            setCopiedOpen(true);
+                          }
+                        }}
+                        sx={{ fontSize: "10px", fontWeight: 600, color: "grey" }}
+                      >
+                        Copy
+                      </Button>
+                    </span>
+                  </Tooltip>
+                </Stack>
+
+                {/* Emoji picker */}
+                {showEmojiPicker && (
+                  <ClickAwayListener onClickAway={() => setShowEmojiPicker(false)}>
+                    <Box
+                      sx={{
+                        position: "absolute",
+                        zIndex: 10,
+                        top: 56,
+                        right: 12,
+                        maxWidth: "100%",
+                      }}
+                    >
+                      <Picker
+                        data={data}
+                        onEmojiSelect={(emoji) => {
+                          const ch = emoji?.native ?? "";
+                          if (!ch) return;
+                          insertAtSelection(ch);
+                          setShowEmojiPicker(false);
+                        }}
+                        theme="light"
+                      />
+                    </Box>
+                  </ClickAwayListener>
+                )}
+
+                <TextField
+                  inputRef={textAreaRef}
+                  placeholder="Write your LinkedIn post here…"
+                  multiline
+                  minRows={12}
+                  fullWidth
+                  value={text}
+                  onChange={onChange}
+                  onMouseDown={captureSelection}
+                  onSelect={captureSelection}
+                  onKeyUp={captureSelection}
+                  onClick={captureSelection}
+                  onKeyDown={(e) => {
+                    const isMod = e.ctrlKey || e.metaKey;
+                    if (!isMod) return;
+                    const key = e.key.toLowerCase();
+                    if (key === "b") {
+                      e.preventDefault();
+                      captureSelection();
+                      toggleStyle("bold");
+                    } else if (key === "i") {
+                      e.preventDefault();
+                      captureSelection();
+                      toggleStyle("italicSans");
+                    } else if (key === "u") {
+                      e.preventDefault();
+                      captureSelection();
+                      toggleUnderline();
+                    } else if (key === "z") {
+                      e.preventDefault();
+                      e.shiftKey ? redo() : undo();
+                    } else if (key === "y") {
+                      e.preventDefault();
+                      redo();
+                    }
+                  }}
+                  InputProps={{ sx: { fontSize: 16, color: overLimit ? "error.main" : "inherit" } }}
+                />
+
+                <Stack direction="row" justifyContent="space-between" sx={{ mt: 1 }}>
+                  <Typography variant="caption" sx={{ color: overLimit ? "error.main" : "text.secondary" }}>
+                    {`${text.length}/${MAX_CHARS}`} characters
                   </Typography>
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <Typography variant="caption" color="text.secondary">12h</Typography>
-                    <PublicOutlinedIcon sx={{ fontSize: 16, color: "text.secondary" }} />
-                  </Stack>
-                </Box>
-              </Stack>
-
-              {/* Body */}
-              <Typography
-                key={previewMode}
-                ref={previewBodyRef}
-                sx={{
-                  fontSize: 16,
-                  lineHeight: 1.5,
-                  whiteSpace: "pre-wrap",
-                  fontFamily: '"Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif'
-                }}
-              >
-                {previewWidth ? (text ? renderWithMore(text) : "Your formatted post will preview here…") : null}
-              </Typography>
-
-              <Box sx={{ my: 2 }}><Divider /></Box>
-
-              {/* Social counts */}
-              <Stack direction="row" alignItems="center" justifyContent="space-between">
-                <Stack direction="row" spacing={0.5} alignItems="center">
-                  <Box sx={{ position: "relative", width: 44, height: 20, mr: 0.5 }}>
-                    <Box sx={{ position: "absolute", left: 0 }}>
-                      <ReactionDot icon={<ThumbUpOffAltIcon sx={{ fontSize: 12 }} />} bg="#0a66c2" />
-                    </Box>
-                    <Box sx={{ position: "absolute", left: 14 }}>
-                      <ReactionDot icon={<FavoriteBorderIcon sx={{ fontSize: 12 }} />} bg="#e63946" />
-                    </Box>
-                  </Box>
-                  <Typography variant="caption" color="text.secondary">57</Typography>
                 </Stack>
 
-                <Stack direction="row" spacing={1}>
-                  <Typography variant="caption" color="text.secondary">24 comments</Typography>
-                  <Typography variant="caption" color="text.secondary">•</Typography>
-                  <Typography variant="caption" color="text.secondary">6 reposts</Typography>
-                </Stack>
+                <Snackbar
+                  open={copiedOpen}
+                  autoHideDuration={2000}
+                  onClose={() => setCopiedOpen(false)}
+                  message="Text copied to clipboard"
+                />
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* RIGHT: LinkedIn Post Simulator */}
+          <Grid item xs={12} md={6} lg={6}>
+            <Box sx={{ border: "1px solid grey", pb: 2, borderRadius: 3, px: 2, py: 1 }}>
+              <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+                <Typography sx={{ fontFamily: "Inter", fontSize: "15px", fontWeight: 500, color: "grey" }}>
+                  Post Preview
+                </Typography>
+
+                {!isMobile && (
+                  <ToggleButtonGroup
+                    size="small"
+                    value={previewMode}
+                    exclusive
+                    onChange={(_, v) => v && setPreviewMode(v)}
+                  >
+                    <ToggleButton value="mobile">
+                      <PhoneIphoneIcon fontSize="small" sx={{ mr: 1 }} />
+                    </ToggleButton>
+                    <ToggleButton value="desktop">
+                      <LaptopMacIcon fontSize="small" sx={{ mr: 1 }} />
+                    </ToggleButton>
+                  </ToggleButtonGroup>
+                )}
               </Stack>
 
-              <Box sx={{ mt: 1 }}><Divider /></Box>
+              <Box sx={{ display: "flex", justifyContent: "center" }}>
+                <Card sx={{ borderRadius: 3, width: "100%", maxWidth: previewMode === "mobile" ? 380 : 680 }}>
+                  <CardContent>
+                    {/* Header */}
+                    <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 1 }}>
+                      <Avatar alt="Profile" src={myAvatar} sx={{ width: 48, height: 48 }} />
+                      <Box>
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <Typography sx={{ fontFamily: "Inter", fontWeight: 600 }}>Bhaskar Sriram</Typography>
+                          <CheckCircleOutlineIcon fontSize="small" sx={{ color: "primary.main" }} />
+                        </Stack>
+                        <Typography variant="body2" color="text.secondary">
+                          Founder @PostLn.com -LinkedIn AI That Writes Like You.
+                        </Typography>
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <Typography variant="caption" color="text.secondary">12h</Typography>
+                          <PublicOutlinedIcon sx={{ fontSize: 16, color: "text.secondary" }} />
+                        </Stack>
+                      </Box>
+                    </Stack>
 
-              {/* Actions */}
-              <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mt: 1 }}>
-                <Action text="Like" icon={<ThumbUpOffAltIcon fontSize="small" />} />
-                <Action text="Comment" icon={<FavoriteBorderIcon fontSize="small" />} />
-                <Action text="Repost" icon={<RepeatIcon fontSize="small" />} />
-                <Action text="Send" icon={<SendOutlinedIcon fontSize="small" />} />
-              </Stack>
-            </CardContent>
-          </Card>
-        </Box>
+                    {/* Body */}
+                    <Typography
+                      key={previewMode}
+                      ref={previewBodyRef}
+                      sx={{
+                        fontSize: 16,
+                        lineHeight: 1.5,
+                        whiteSpace: "pre-wrap",
+                        fontFamily: '"Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif',
+                      }}
+                    >
+                      {previewWidth ? (text ? renderWithMore(text) : "Your formatted post will preview here…") : null}
+                    </Typography>
+
+                    <Box sx={{ my: 2 }}>
+                      <Divider />
+                    </Box>
+
+                    {/* Social counts */}
+                    <Stack direction="row" alignItems="center" justifyContent="space-between">
+                      <Stack direction="row" spacing={0.5} alignItems="center">
+                        <Box sx={{ position: "relative", width: 44, height: 20, mr: 0.5 }}>
+                          <Box sx={{ position: "absolute", left: 0 }}>
+                            <ReactionDot icon={<ThumbUpOffAltIcon sx={{ fontSize: 12 }} />} bg="#0a66c2" />
+                          </Box>
+                          <Box sx={{ position: "absolute", left: 14 }}>
+                            <ReactionDot icon={<FavoriteBorderIcon sx={{ fontSize: 12 }} />} bg="#e63946" />
+                          </Box>
+                        </Box>
+                        <Typography variant="caption" color="text.secondary">57</Typography>
+                      </Stack>
+
+                      <Stack direction="row" spacing={1}>
+                        <Typography variant="caption" color="text.secondary">24 comments</Typography>
+                        <Typography variant="caption" color="text.secondary">•</Typography>
+                        <Typography variant="caption" color="text.secondary">6 reposts</Typography>
+                      </Stack>
+                    </Stack>
+
+                    <Box sx={{ mt: 1 }}>
+                      <Divider />
+                    </Box>
+
+                    {/* Actions */}
+                    <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mt: 1 }}>
+                      <Action text="Like" icon={<ThumbUpOffAltIcon fontSize="small" />} />
+                      <Action text="Comment" icon={<FavoriteBorderIcon fontSize="small" />} />
+                      <Action text="Repost" icon={<RepeatIcon fontSize="small" />} />
+                      <Action text="Send" icon={<SendOutlinedIcon fontSize="small" />} />
+                    </Stack>
+                  </CardContent>
+                </Card>
+              </Box>
+            </Box>
+          </Grid>
+        </Grid>
       </Box>
-    </Grid>
-  </Grid>
-</Box>
-<BannerLandpage />
-<Footer />
-
+      <BannerLandpage />
+      <Footer />
     </>
   );
 }
