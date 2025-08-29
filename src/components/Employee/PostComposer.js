@@ -1437,7 +1437,7 @@ const PostComposer = () => {
 </Stack>
 
                                 <Typography variant="caption" color="text.secondary">
-                                  {reactionCounts.likes} reactions
+                                  {reactionCounts.likes}
                                 </Typography>
                               </Stack>
 
@@ -1454,41 +1454,83 @@ const PostComposer = () => {
 
                           {/* Actions bar (Like / Comment / Repost / Send) */}
                           <Stack direction="row" justifyContent="space-between" sx={{ mt: 0.5 }}>
-                            <Button
-                              variant="text"
-                              onClick={toggleLike}
-                              startIcon={<ThumbUpOffAltIcon sx={{ fontSize: 20, color: userReacted ? '#0a66c2' : 'inherit' }} />}
-                              sx={{ textTransform: 'none', color: userReacted ? '#0a66c2' : 'text.secondary' }}
-                            >
-                              Like
-                            </Button>
-                            <Button
-                              variant="text"
-                              startIcon={<ChatBubbleOutlineOutlinedIcon sx={{ fontSize: 20 }} />}
-                              sx={{ textTransform: 'none', color: 'text.secondary' }}
-                              onClick={() => {
-                                setReactionCounts((rc) => ({ ...rc, comments: rc.comments + 1 }));
-                              }}
-                            >
-                              Comment
-                            </Button>
-                            <Button
-                              variant="text"
-                              startIcon={<RepeatOutlinedIcon sx={{ fontSize: 20 }} />}
-                              sx={{ textTransform: 'none', color: 'text.secondary' }}
-                              onClick={() => {
-                                setReactionCounts((rc) => ({ ...rc, reposts: rc.reposts + 1 }));
-                              }}
-                            >
-                              Repost
-                            </Button>
-                            <Button
-                              variant="text"
-                              startIcon={<SendOutlinedIcon sx={{ fontSize: 20 }} />}
-                              sx={{ textTransform: 'none', color: 'text.secondary' }}
-                            >
-                              Send
-                            </Button>
+                           <Button
+  variant="text"
+  onClick={toggleLike}
+  sx={{
+    textTransform: "none",
+    color: userReacted ? "#0a66c2" : "text.secondary",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    minWidth: 50, // ensures button has enough width for centering
+  }}
+>
+  <ThumbUpOffAltIcon
+    sx={{ fontSize: 20, color: userReacted ? "#0a66c2" : "inherit" }}
+  />
+  <Typography variant="caption" sx={{ fontSize: 12 }}>
+    Like
+  </Typography>
+</Button>
+
+                           <Button
+  variant="text"
+  onClick={() => {
+    setReactionCounts((rc) => ({ ...rc, comments: rc.comments + 1 }));
+  }}
+  sx={{
+    textTransform: "none",
+    color: "text.secondary",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    minWidth: 50,
+  }}
+>
+  <ChatBubbleOutlineOutlinedIcon sx={{ fontSize: 20 }} />
+  <Typography variant="caption" sx={{ fontSize: 12 }}>
+    Comment
+  </Typography>
+</Button>
+
+<Button
+  variant="text"
+  onClick={() => {
+    setReactionCounts((rc) => ({ ...rc, reposts: rc.reposts + 1 }));
+  }}
+  sx={{
+    textTransform: "none",
+    color: "text.secondary",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    minWidth: 50,
+  }}
+>
+  <RepeatOutlinedIcon sx={{ fontSize: 20 }} />
+  <Typography variant="caption" sx={{ fontSize: 12 }}>
+    Repost
+  </Typography>
+</Button>
+
+<Button
+  variant="text"
+  sx={{
+    textTransform: "none",
+    color: "text.secondary",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    minWidth: 50,
+  }}
+>
+  <SendOutlinedIcon sx={{ fontSize: 20 }} />
+  <Typography variant="caption" sx={{ fontSize: 12 }}>
+    Send
+  </Typography>
+</Button>
+
                           </Stack>
                         </CardContent>
                       </Card>

@@ -856,12 +856,18 @@ export default function LinkedInFormatterEditor() {
                     </Box>
 
                     {/* Actions */}
-                    <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mt: 1 }}>
-                      <Action text="Like" icon={<ThumbUpOffAltIcon fontSize="small" />} />
-                      <Action text="Comment" icon={<FavoriteBorderIcon fontSize="small" />} />
-                      <Action text="Repost" icon={<RepeatIcon fontSize="small" />} />
-                      <Action text="Send" icon={<SendOutlinedIcon fontSize="small" />} />
-                    </Stack>
+                  <Stack
+  direction="row"
+  alignItems="center"
+  justifyContent="space-between"
+  sx={{ mt: 1 }}
+>
+  <Action text="Like" icon={<ThumbUpOffAltIcon fontSize="small" />} />
+  <Action text="Comment" icon={<FavoriteBorderIcon fontSize="small" />} />
+  <Action text="Repost" icon={<RepeatIcon fontSize="small" />} />
+  <Action text="Send" icon={<SendOutlinedIcon fontSize="small" />} />
+</Stack>
+
                   </CardContent>
                 </Card>
               </Box>
@@ -877,7 +883,12 @@ export default function LinkedInFormatterEditor() {
 
 function Action({ icon, text }) {
   return (
-    <Stack direction="row" spacing={1} alignItems="center">
+    <Stack
+      direction="column"
+      spacing={0.5}
+      alignItems="center"
+      justifyContent="center"
+    >
       {icon}
       <Typography variant="caption" color="text.secondary">
         {text}
@@ -885,3 +896,4 @@ function Action({ icon, text }) {
     </Stack>
   );
 }
+
