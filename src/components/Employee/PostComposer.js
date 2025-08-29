@@ -990,10 +990,10 @@ const PostComposer = () => {
 
           <DialogContent sx={{ pt: 1 }}>
             {/* Two-pane layout */}
-            <Grid container spacing={2}>
+            <Grid container spacing={1}>
               {/* LEFT: Editor with formatting toolbar */}
               <Grid item xs={12} md={6}>
-                <Card sx={{height: '100%', mt: 1 }}>
+                <div sx={{height: '100%', mt: 1}}>
                   <CardContent>
                     {/* Formatting toolbar */}
                     <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
@@ -1311,12 +1311,12 @@ const PostComposer = () => {
                       </Stack>
                     </Box>
                   </CardContent>
-                </Card>
+                </div>
               </Grid>
 
               {/* RIGHT: LinkedIn-like preview */}
               <Grid item xs={12} md={6}>
-                <Card sx={{ mt: 1 }}>
+                <div sx={{ mt: 1 }}>
                   <CardContent>
                     {/* Preview header with toggle */}
                     <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
@@ -1494,7 +1494,7 @@ const PostComposer = () => {
                       </Card>
                     </Box>
                   </CardContent>
-                </Card>
+                </div>
               </Grid>
             </Grid>
           </DialogContent>
